@@ -3,18 +3,18 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>ศึกดาบเห็ด 3D - Mushroom Sword Duel</title>
 
-    <!-- ฟอนต์ภาษาไทยอ่านง่าย สไตล์เกมอาร์เคด -->
+    <!-- ฟอนต์ภาษาไทยอ่านง่าย สไตล์เกมแอ็กชัน -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
-    <!-- Tailwind CSS สำหรับจัดเลย์เอาต์เต็มจอรองรับแท็บเล็ต มือถือ และคอมพิวเตอร์ -->
+    <!-- Tailwind CSS สำหรับจัดเลย์เอาต์ Overlay เต็มจอรองรับแท็บเล็ต มือถือ และคอมพิวเตอร์ -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Three.js สำหรับกราฟิก 3D, Tone.js สำหรับเสียง และ PeerJS สำหรับออนไลน์ข้ามเครื่องผ่านรหัสห้อง 4 หลัก -->
+    <!-- Three.js สำหรับกราฟิก 3D, Tone.js สำหรับเสียง และ PeerJS สำหรับออนไลน์ข้ามเครื่อง -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -33,89 +33,106 @@
             width: 100%;
             height: 100dvh;
             overflow: hidden;
+            overscroll-behavior: none;
+            touch-action: none;
             font-family: 'Kanit', sans-serif;
-            background: radial-gradient(circle at top, #1e1b4b 0%, #0f172a 58%, #020617 100%);
+            background: #060918;
             color: #f8fafc;
         }
 
-        /* กรอบแคนวาส 3D ขยายเต็มพื้นที่ว่างโดยไม่ต้องเลื่อนหน้าจอ */
+        /* แคนวาส 3D เต็มหน้าจอ 100% ไม่โดนบีบ */
         #game-canvas-wrapper {
-            position: relative;
-            flex: 1 1 0%;
-            min-height: 170px;
+            position: fixed;
+            inset: 0;
             width: 100%;
-            border-radius: 1rem;
+            height: 100dvh;
             overflow: hidden;
-            border: 2px solid rgba(251, 191, 36, 0.38);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), inset 0 0 24px rgba(139, 92, 246, 0.22);
-            background: #0b1120;
+            background: #080d21;
             touch-action: none;
+            z-index: 1;
         }
 
         #game-canvas-wrapper canvas {
             display: block;
             width: 100%;
             height: 100%;
-            cursor: grab;
         }
 
-        #game-canvas-wrapper canvas:active {
-            cursor: grabbing;
+        /* เลเยอร์ UI โปร่งแสงวางทับบนฉาก 3D */
+        #hud-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 15;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding-top: max(0.45rem, env(safe-area-inset-top));
+            padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+            padding-left: max(0.5rem, env(safe-area-inset-left));
+            padding-right: max(0.5rem, env(safe-area-inset-right));
         }
 
-        /* ปุ่มแคปซูลบนแถบเมนู */
+        .interactive-ui {
+            pointer-events: auto;
+        }
+
+        /* ปุ่มแคปซูล Glassmorphism */
         .btn-pill {
-            background: linear-gradient(180deg, rgba(51, 65, 85, 0.94) 0%, rgba(15, 23, 42, 0.96) 100%);
-            border: 1.5px solid rgba(255, 255, 255, 0.18);
-            box-shadow: 0 3px 0 rgba(2, 6, 23, 0.85);
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.88) 0%, rgba(15, 23, 42, 0.92) 100%);
+            backdrop-filter: blur(8px);
+            border: 1.5px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
             transition: transform 0.1s ease, border-color 0.15s ease, filter 0.15s ease;
             cursor: pointer;
+            white-space: nowrap;
         }
 
         .btn-pill:hover {
-            border-color: rgba(251, 191, 36, 0.7);
-            filter: brightness(1.08);
+            border-color: rgba(251, 191, 36, 0.75);
+            filter: brightness(1.1);
         }
 
         .btn-pill:active {
-            transform: translateY(2px);
-            box-shadow: 0 1px 0 rgba(2, 6, 23, 0.9);
+            transform: scale(0.95);
         }
 
         .btn-pill.active-mode {
             background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
             color: #fffbeb;
             border-color: #fef08a;
-            box-shadow: 0 3px 0 #78350f, 0 0 12px rgba(245, 158, 11, 0.45);
+            box-shadow: 0 0 14px rgba(245, 158, 11, 0.5);
         }
 
-        /* จอยสติ๊กอนาล็อก 360 องศา รองรับ Multi-Touch แยกจอย P1 และ P2 */
-        .joy-zone {
+        /* พื้นที่แตะจอยลอย (Floating Joystick Touch Zone) */
+        .floating-joy-area {
             position: relative;
-            width: 108px;
-            height: 108px;
-            border-radius: 9999px;
-            background: radial-gradient(circle, rgba(30, 41, 59, 0.92) 0%, rgba(15, 23, 42, 0.96) 72%, rgba(251, 191, 36, 0.22) 100%);
-            border: 2.5px solid rgba(148, 163, 184, 0.45);
-            box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.75), 0 6px 16px rgba(0, 0, 0, 0.45);
             touch-action: none;
             cursor: pointer;
-            flex-shrink: 0;
         }
 
-        .joy-zone-p1 {
+        .joy-ring {
+            position: absolute;
+            width: 112px;
+            height: 112px;
+            margin-left: -56px;
+            margin-top: -56px;
+            border-radius: 9999px;
+            background: radial-gradient(circle, rgba(15, 23, 42, 0.35) 0%, rgba(30, 41, 59, 0.65) 72%, rgba(251, 191, 36, 0.35) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.45);
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+        }
+
+        .joy-ring-p1 {
             border-color: rgba(251, 113, 133, 0.65);
-            background: radial-gradient(circle, rgba(69, 10, 10, 0.75) 0%, rgba(15, 23, 42, 0.96) 75%, rgba(244, 63, 94, 0.25) 100%);
+            background: radial-gradient(circle, rgba(69, 10, 10, 0.35) 0%, rgba(15, 23, 42, 0.65) 75%, rgba(244, 63, 94, 0.35) 100%);
         }
 
-        .joy-zone-p2 {
+        .joy-ring-p2 {
             border-color: rgba(56, 189, 248, 0.65);
-            background: radial-gradient(circle, rgba(8, 47, 73, 0.75) 0%, rgba(15, 23, 42, 0.96) 75%, rgba(6, 182, 212, 0.25) 100%);
-        }
-
-        .joy-zone-compact {
-            width: 88px;
-            height: 88px;
+            background: radial-gradient(circle, rgba(8, 47, 73, 0.35) 0%, rgba(15, 23, 42, 0.65) 75%, rgba(6, 182, 212, 0.35) 100%);
         }
 
         .joy-knob {
@@ -128,110 +145,107 @@
             margin-top: -23px;
             border-radius: 9999px;
             background: radial-gradient(circle at 35% 30%, #fef08a 0%, #f59e0b 55%, #b45309 100%);
-            border: 2.5px solid #ffffff;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65), 0 0 14px rgba(251, 191, 36, 0.5);
+            border: 2.5px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65);
             pointer-events: none;
-            transition: transform 0.04s linear;
-        }
-
-        .joy-knob-compact {
-            width: 38px;
-            height: 38px;
-            margin-left: -19px;
-            margin-top: -19px;
         }
 
         .joy-knob-p1 {
             background: radial-gradient(circle at 35% 30%, #fda4af 0%, #e11d48 55%, #881337 100%);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.65), 0 0 12px rgba(244, 63, 94, 0.55);
         }
 
         .joy-knob-p2 {
             background: radial-gradient(circle at 35% 30%, #a5f3fc 0%, #0284c7 55%, #0c4a6e 100%);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.65), 0 0 12px rgba(56, 189, 248, 0.55);
         }
 
-        /* ปุ่มกดต่อสู้สไตล์เกมแท็บเล็ตจับถนัดนิ้วโป้ง */
+        /* ปุ่มกดต่อสู้สไตล์ Action Arc โปร่งแสงเล็กน้อยเพื่อเห็นฉากทะลุได้ */
         .action-btn {
             position: relative;
             font-weight: 800;
             border-radius: 9999px;
-            border: 2.5px solid rgba(255, 255, 255, 0.42);
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(4px);
             transition: transform 0.07s ease, filter 0.1s ease, box-shadow 0.08s ease;
             cursor: pointer;
-            touch-action: manipulation;
+            touch-action: none;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             line-height: 1.05;
+            flex-shrink: 0;
         }
 
         .action-btn:active, .action-btn.pressed {
-            transform: scale(0.91) translateY(2px);
-            filter: brightness(1.2);
+            transform: scale(0.9) translateY(2px);
+            filter: brightness(1.22);
         }
 
         .btn-slash {
-            background: radial-gradient(circle at 30% 25%, #fb7185 0%, #e11d48 60%, #881337 100%);
-            box-shadow: 0 5px 0 #4c0519, 0 8px 18px rgba(225, 29, 72, 0.5);
+            background: radial-gradient(circle at 30% 25%, rgba(251, 113, 133, 0.94) 0%, rgba(225, 29, 72, 0.92) 62%, rgba(136, 19, 55, 0.95) 100%);
+            box-shadow: 0 4px 0 rgba(76, 5, 25, 0.9), 0 8px 20px rgba(225, 29, 72, 0.45);
         }
 
         .btn-slash-p2 {
-            background: radial-gradient(circle at 30% 25%, #38bdf8 0%, #0284c7 60%, #0c4a6e 100%);
-            box-shadow: 0 5px 0 #082f49, 0 8px 18px rgba(2, 132, 199, 0.5);
+            background: radial-gradient(circle at 30% 25%, rgba(56, 189, 248, 0.94) 0%, rgba(2, 132, 199, 0.92) 62%, rgba(12, 74, 110, 0.95) 100%);
+            box-shadow: 0 4px 0 rgba(8, 47, 73, 0.9), 0 8px 20px rgba(2, 132, 199, 0.45);
         }
 
         .btn-thrust {
-            background: radial-gradient(circle at 30% 25%, #fde047 0%, #d97706 65%, #78350f 100%);
-            box-shadow: 0 4px 0 #451a03, 0 6px 14px rgba(217, 119, 6, 0.45);
+            background: radial-gradient(circle at 30% 25%, rgba(253, 224, 71, 0.92) 0%, rgba(217, 119, 6, 0.9) 65%, rgba(120, 53, 15, 0.95) 100%);
+            box-shadow: 0 3px 0 rgba(69, 26, 3, 0.9), 0 6px 14px rgba(217, 119, 6, 0.4);
         }
 
         .btn-guard {
-            background: radial-gradient(circle at 30% 25%, #7dd3fc 0%, #0369a1 65%, #0c4a6e 100%);
-            box-shadow: 0 4px 0 #082f49, 0 6px 14px rgba(3, 105, 161, 0.45);
+            background: radial-gradient(circle at 30% 25%, rgba(125, 211, 252, 0.92) 0%, rgba(3, 105, 161, 0.9) 65%, rgba(12, 74, 110, 0.95) 100%);
+            box-shadow: 0 3px 0 rgba(8, 47, 73, 0.9), 0 6px 14px rgba(3, 105, 161, 0.4);
+        }
+
+        .btn-dash {
+            background: radial-gradient(circle at 30% 25%, rgba(110, 231, 183, 0.92) 0%, rgba(5, 150, 105, 0.9) 65%, rgba(6, 78, 59, 0.95) 100%);
+            box-shadow: 0 3px 0 rgba(2, 44, 34, 0.9), 0 6px 14px rgba(16, 185, 129, 0.4);
         }
 
         .btn-ult {
-            background: radial-gradient(circle at 30% 25%, #e879f9 0%, #9333ea 65%, #4c1d95 100%);
-            box-shadow: 0 4px 0 #2e1065, 0 6px 16px rgba(147, 51, 234, 0.45);
-            opacity: 0.7;
+            background: radial-gradient(circle at 30% 25%, rgba(232, 121, 249, 0.88) 0%, rgba(147, 51, 234, 0.88) 65%, rgba(76, 29, 149, 0.92) 100%);
+            box-shadow: 0 3px 0 rgba(46, 16, 101, 0.9), 0 6px 14px rgba(147, 51, 234, 0.4);
+            opacity: 0.68;
         }
 
         .btn-ult.ult-ready {
             opacity: 1;
             border-color: #fde047;
-            animation: ultPulse 0.75s ease-in-out infinite alternate;
+            animation: ultPulse 0.72s ease-in-out infinite alternate;
         }
 
         @keyframes ultPulse {
             from {
-                box-shadow: 0 4px 0 #2e1065, 0 0 12px rgba(240, 171, 252, 0.7);
+                box-shadow: 0 3px 0 #2e1065, 0 0 12px rgba(240, 171, 252, 0.75);
                 transform: scale(1);
             }
             to {
-                box-shadow: 0 4px 0 #2e1065, 0 0 26px rgba(253, 224, 71, 1);
+                box-shadow: 0 3px 0 #2e1065, 0 0 24px rgba(253, 224, 71, 1);
                 transform: scale(1.06);
             }
         }
 
-        .hp-fill, .spore-fill {
-            transition: width 0.14s ease-out;
+        .bar-smooth {
+            transition: width 0.12s ease-out;
         }
 
         @keyframes floatCallout {
             0% { opacity: 0; transform: translate(-50%, 8px) scale(0.72); }
-            18% { opacity: 1; transform: translate(-50%, -8px) scale(1.12); }
+            18% { opacity: 1; transform: translate(-50%, -8px) scale(1.1); }
             80% { opacity: 1; transform: translate(-50%, -30px) scale(1); }
-            100% { opacity: 0; transform: translate(-50%, -46px) scale(0.92); }
+            100% { opacity: 0; transform: translate(-50%, -44px) scale(0.92); }
         }
 
         .callout-text {
             position: absolute;
             font-weight: 900;
             white-space: nowrap;
-            text-shadow: 0 3px 0 rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.85);
-            animation: floatCallout 1.0s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            text-shadow: 0 2px 0 rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.9);
+            animation: floatCallout 1.05s cubic-bezier(0.22, 1, 0.36, 1) forwards;
             pointer-events: none;
         }
 
@@ -249,7 +263,7 @@
 
         .cinema-bar-top { top: 0; border-bottom: 2px solid rgba(251, 191, 36, 0.45); }
         .cinema-bar-bottom { bottom: 0; border-top: 2px solid rgba(251, 191, 36, 0.45); }
-        .cutscene-active .cinema-bar { height: 12%; }
+        .cutscene-active .cinema-bar { height: 11%; }
 
         @keyframes speedFlash {
             0% { opacity: 0; transform: scale(1.25) rotate(0deg); }
@@ -301,103 +315,29 @@
 
         .toast-msg { animation: toastIn 0.22s ease-out forwards; }
 
-        @media (max-width: 640px) {
-            .joy-zone { width: 92px; height: 92px; }
+        /* ปรับขนาดวงจอยลอยบนหน้าจอเล็ก */
+        @media (max-width: 639px) {
+            .joy-ring { width: 96px; height: 96px; margin-left: -48px; margin-top: -48px; }
             .joy-knob { width: 40px; height: 40px; margin-left: -20px; margin-top: -20px; }
-            .joy-zone-compact { width: 74px; height: 74px; }
-            .joy-knob-compact { width: 32px; height: 32px; margin-left: -16px; margin-top: -16px; }
         }
     </style>
 </head>
-<body class="flex flex-col p-1.5 sm:p-2 gap-1.5 max-w-6xl mx-auto">
+<body>
 
     <!-- กล่องแจ้งเตือน Toast -->
-    <div id="toast-container" class="fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 w-max max-w-[92vw]"></div>
+    <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 w-max max-w-[92vw]"></div>
 
-    <!-- ===================== แถบบนกระชับ: เลือด สปอร์ และปุ่มลัด ===================== -->
-    <header class="w-full shrink-0 bg-slate-900/88 backdrop-blur-md border border-white/15 rounded-2xl px-2.5 py-1.5 shadow-lg">
-        <div class="grid grid-cols-12 items-center gap-1.5 sm:gap-2">
-            <!-- ฝั่ง P1 (ซ้าย) -->
-            <div class="col-span-4">
-                <div class="flex items-center justify-between text-[11px] sm:text-xs font-extrabold leading-none mb-1">
-                    <span id="p1-label" class="text-rose-300 truncate">🔴 P1 เห็ดแดง</span>
-                    <span id="p1-hp-text" class="text-white ml-1">100</span>
-                </div>
-                <div class="w-full h-3 sm:h-3.5 bg-slate-800 rounded-full overflow-hidden border border-rose-500/45">
-                    <div id="p1-hp-bar" class="hp-fill h-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 rounded-full" style="width: 100%;"></div>
-                </div>
-                <div class="flex items-center gap-1 mt-1">
-                    <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-fuchsia-400/35">
-                        <div id="p1-spore-bar" class="spore-fill h-full bg-gradient-to-r from-fuchsia-500 to-amber-300 rounded-full" style="width: 0%;"></div>
-                    </div>
-                    <span id="p1-wins" class="text-[11px] leading-none">⚪⚪</span>
-                </div>
-            </div>
-
-            <!-- ตรงกลาง: ปุ่มลัด เล่น 2P จอเดียว / ออนไลน์ / สกิน / มุมกล้อง / เสียง -->
-            <div class="col-span-4 flex flex-col items-center justify-center gap-1">
-                <div class="flex items-center gap-1 flex-wrap justify-center">
-                    <span class="bg-amber-400/20 border border-amber-400/45 text-amber-300 font-black text-[11px] px-2 py-0.5 rounded-full">
-                        ยก <span id="round-num">1</span>
-                    </span>
-                    <button id="btn-quick-2p" class="btn-pill text-[11px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-xl text-cyan-200" title="เล่น 2 คนบนแท็บเล็ตเครื่องเดียวกัน">
-                        👥 2P จอเดียว
-                    </button>
-                    <button id="btn-open-online" class="btn-pill text-[11px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-xl text-emerald-300" title="สร้างห้องออนไลน์ข้ามเครื่อง">
-                        🌐 ออนไลน์
-                    </button>
-                    <button id="btn-open-settings" class="btn-pill text-[11px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-xl text-amber-200">
-                        🎨 สกิน
-                    </button>
-                    <button id="btn-cycle-cam" class="btn-pill text-[11px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-xl text-sky-200">
-                        🎥 ดวลข้าง
-                    </button>
-                    <button id="btn-sound" class="btn-pill text-[11px] sm:text-xs font-bold px-1.5 py-0.5 sm:py-1 rounded-xl text-slate-200">
-                        🔊
-                    </button>
-                </div>
-                <div id="online-status-pill" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/45 text-emerald-300 leading-none">
-                    🌐 ห้อง: ----
-                </div>
-            </div>
-
-            <!-- ฝั่ง P2 (ขวา) -->
-            <div class="col-span-4">
-                <div class="flex items-center justify-between text-[11px] sm:text-xs font-extrabold leading-none mb-1">
-                    <span id="p2-hp-text" class="text-white mr-1">100</span>
-                    <span id="p2-label" class="text-cyan-300 truncate">บอทเห็ดฟ้า 🔵</span>
-                </div>
-                <div class="w-full h-3 sm:h-3.5 bg-slate-800 rounded-full overflow-hidden border border-cyan-400/45">
-                    <div id="p2-hp-bar" class="hp-fill h-full ml-auto bg-gradient-to-l from-blue-600 via-cyan-500 to-emerald-300 rounded-full" style="width: 100%;"></div>
-                </div>
-                <div class="flex items-center gap-1 mt-1">
-                    <span id="p2-wins" class="text-[11px] leading-none">⚪⚪</span>
-                    <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-fuchsia-400/35">
-                        <div id="p2-spore-bar" class="spore-fill h-full ml-auto bg-gradient-to-l from-fuchsia-500 to-amber-300 rounded-full" style="width: 0%;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- ===================== พื้นที่แคนวาส 3D หลักขนาดใหญ่เต็มตา ===================== -->
+    <!-- ===================== 1. พื้นที่แคนวาส 3D เต็มหน้าจอ 100% ===================== -->
     <main id="game-canvas-wrapper">
         <div id="callout-layer" class="absolute inset-0 pointer-events-none overflow-hidden z-20"></div>
-
-        <!-- ป้ายมุมซ้ายบนในสนาม -->
-        <div class="absolute top-2 left-2 z-10 pointer-events-none flex items-center gap-1.5">
-            <span id="you-indicator" class="bg-slate-950/70 backdrop-blur-sm border border-rose-400/40 text-rose-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                โหมด 1P: 🔴 คุณ vs 🤖 บอท
-            </span>
-        </div>
 
         <!-- แถบหนัง Letterbox + เส้นสปีดอนิเมะ + HUD คัทซีน 3D -->
         <div class="cinema-bar cinema-bar-top"></div>
         <div class="cinema-bar cinema-bar-bottom"></div>
         <div id="ult-speedlines" class="ult-speedlines hidden"></div>
 
-        <div id="cutscene-hud" class="hidden absolute inset-0 pointer-events-none z-30 flex flex-col justify-between p-3 sm:p-4">
-            <div class="flex items-start justify-between">
+        <div id="cutscene-hud" class="hidden absolute inset-0 pointer-events-none z-30 flex flex-col justify-between p-3 sm:p-5">
+            <div class="flex items-start justify-between gap-2 pt-12 sm:pt-14">
                 <div id="cutscene-badge" class="bg-amber-400/95 text-slate-950 font-black text-xs sm:text-sm px-3 py-1 rounded-full shadow-lg border-2 border-white/80">
                     🎬 CUTSCENE
                 </div>
@@ -406,173 +346,268 @@
                 </button>
             </div>
 
-            <div class="flex flex-col items-center text-center mb-1">
-                <div id="cutscene-title" class="text-lg sm:text-3xl font-black text-amber-300 drop-shadow-[0_3px_0_rgba(0,0,0,0.95)]"></div>
-                <div id="cutscene-subtitle" class="mt-1 bg-slate-950/80 border border-amber-300/40 text-white text-xs sm:text-sm font-semibold px-3.5 py-1 rounded-2xl max-w-xl shadow-xl"></div>
-            </div>
-        </div>
-
-        <!-- ป้ายประกาศกลางจอ -->
-        <div id="banner-overlay" class="absolute inset-0 z-25 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm transition-opacity duration-250 p-3">
-            <div class="bg-gradient-to-b from-slate-800/95 to-slate-950/95 border-2 border-amber-400/70 rounded-3xl p-4 sm:p-5 max-w-lg w-full text-center shadow-2xl">
-                <div id="banner-emoji" class="text-4xl sm:text-5xl mb-1">🍄⚔️🔥</div>
-                <h2 id="banner-title" class="text-xl sm:text-2xl font-black text-amber-300 mb-1">
-                    ศึกดาบเห็ด 3D!
-                </h2>
-                <p id="banner-desc" class="text-xs sm:text-sm text-slate-200 mb-3 leading-relaxed">
-                    ดวลกับเพื่อนบนแท็บเล็ตได้ทันที 2 แบบ: เล่น 2 คนจอเดียวกัน (ทัช 2 ฝั่ง) หรือสร้างห้องออนไลน์ข้ามเครื่องด้วยรหัส 4 หลัก!
-                </p>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <button id="btn-start-match" class="btn-pill active-mode text-white text-sm font-black px-3 py-2.5 rounded-2xl">
-                        🤖 ดวลบอท 1P
-                    </button>
-                    <button id="btn-banner-2p" class="btn-pill text-cyan-200 border-cyan-400/50 text-sm font-black px-3 py-2.5 rounded-2xl">
-                        👥 2P แท็บเล็ตจอเดียว
-                    </button>
-                    <button id="btn-banner-online" class="btn-pill text-emerald-300 border-emerald-400/50 text-sm font-black px-3 py-2.5 rounded-2xl">
-                        🌐 ออนไลน์ 2 เครื่อง
-                    </button>
-                </div>
+            <div class="flex flex-col items-center text-center mb-4">
+                <div id="cutscene-title" class="text-lg sm:text-3xl font-black text-amber-300 drop-shadow-[0_2px_0_rgba(0,0,0,0.95)] leading-tight"></div>
+                <div id="cutscene-subtitle" class="mt-1 bg-slate-950/85 border border-amber-300/40 text-white text-xs sm:text-sm font-semibold px-3.5 py-1.5 rounded-2xl max-w-[92%] sm:max-w-xl shadow-xl"></div>
             </div>
         </div>
     </main>
 
-    <!-- ===================== แผงควบคุมล่าง A: โหมด 1P และ โหมดออนไลน์ (จอยใหญ่ 1 ฝั่ง) ===================== -->
-    <section id="controls-single" class="w-full shrink-0 bg-slate-900/88 backdrop-blur-md border border-white/15 rounded-2xl px-3 sm:px-5 py-2 shadow-xl">
-        <div class="flex items-center justify-between gap-2 sm:gap-4">
-            <div class="flex items-center gap-3">
-                <div id="joystick-single-zone" class="joy-zone" aria-label="จอยสติ๊กเคลื่อนที่ 360 องศา">
-                    <span class="absolute top-1.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400/70 pointer-events-none">▲</span>
-                    <span class="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400/70 pointer-events-none">▼</span>
-                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400/70 pointer-events-none">◀</span>
-                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400/70 pointer-events-none">▶</span>
+    <!-- ===================== 2. เลเยอร์ HUD & ปุ่มควบคุมโปร่งแสงทับบนฉาก 3D ===================== -->
+    <div id="hud-overlay">
+
+        <!-- แถบข้อมูลด้านบนแบบมินิมอล โปร่งแสง ไม่รกสายตา -->
+        <header class="w-full max-w-6xl mx-auto">
+            <div class="bg-slate-950/65 backdrop-blur-md border border-white/15 rounded-2xl px-2.5 sm:px-3.5 py-1.5 shadow-xl">
+                <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+                    <!-- ฝั่ง P1 (ซ้าย) -->
+                    <div class="min-w-0">
+                        <div class="flex items-center justify-between text-[11px] sm:text-xs font-extrabold leading-none mb-1">
+                            <span id="p1-label" class="text-rose-300 truncate">🔴 P1 เห็ดแดง</span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <span id="p1-wins" class="text-[10px] sm:text-[11px]">⚪⚪</span>
+                                <span id="p1-hp-text" class="text-white font-black">100</span>
+                            </div>
+                        </div>
+                        <!-- หลอดเลือด HP -->
+                        <div class="w-full h-2.5 sm:h-3 bg-slate-900/90 rounded-full overflow-hidden border border-rose-500/45">
+                            <div id="p1-hp-bar" class="bar-smooth h-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 rounded-full" style="width: 100%;"></div>
+                        </div>
+                        <!-- หลอด Stamina (เขียว) + สปอร์อัลติ (ม่วงทอง) -->
+                        <div class="grid grid-cols-2 gap-1 mt-1">
+                            <div class="h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-emerald-400/35" title="พลังงาน Stamina">
+                                <div id="p1-stam-bar" class="bar-smooth h-full bg-gradient-to-r from-emerald-500 to-lime-300 rounded-full" style="width: 100%;"></div>
+                            </div>
+                            <div class="h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-fuchsia-400/35" title="เกจท่าไม้ตาย">
+                                <div id="p1-spore-bar" class="bar-smooth h-full bg-gradient-to-r from-fuchsia-500 to-amber-300 rounded-full" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ตรงกลาง: ยกที่ + ปุ่มเมนูรวม & กล้อง -->
+                    <div class="flex flex-col items-center justify-center gap-1">
+                        <div class="flex items-center gap-1">
+                            <button id="btn-cycle-cam" class="interactive-ui btn-pill text-[10px] sm:text-xs font-bold px-2 py-1 rounded-xl text-sky-200" title="สลับมุมกล้อง">
+                                🎥 เฉียง 3D
+                            </button>
+                            <span class="bg-amber-400/25 border border-amber-400/55 text-amber-300 font-black text-[11px] sm:text-xs px-2 py-0.5 rounded-xl whitespace-nowrap">
+                                ยก <span id="round-num">1</span>
+                            </span>
+                            <button id="btn-open-menu" class="interactive-ui btn-pill text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-xl text-amber-200 border-amber-400/45" title="เปิดเมนูโหมดการเล่น ออนไลน์ และสกิน">
+                                ☰ เมนู
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span id="you-indicator" class="text-[9px] sm:text-[10px] font-bold text-slate-300 leading-none truncate max-w-[150px] sm:max-w-[230px]">
+                                1P: 🔴 คุณ vs 🤖 บอท
+                            </span>
+                            <span id="online-status-pill" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/25 border border-emerald-400/50 text-emerald-300 leading-none">
+                                🌐 ----
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- ฝั่ง P2 (ขวา) -->
+                    <div class="min-w-0">
+                        <div class="flex items-center justify-between text-[11px] sm:text-xs font-extrabold leading-none mb-1">
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <span id="p2-hp-text" class="text-white font-black">100</span>
+                                <span id="p2-wins" class="text-[10px] sm:text-[11px]">⚪⚪</span>
+                            </div>
+                            <span id="p2-label" class="text-cyan-300 truncate text-right">บอทเห็ดฟ้า 🔵</span>
+                        </div>
+                        <!-- หลอดเลือด HP -->
+                        <div class="w-full h-2.5 sm:h-3 bg-slate-900/90 rounded-full overflow-hidden border border-cyan-400/45">
+                            <div id="p2-hp-bar" class="bar-smooth h-full ml-auto bg-gradient-to-l from-blue-600 via-cyan-500 to-emerald-300 rounded-full" style="width: 100%;"></div>
+                        </div>
+                        <!-- หลอด Stamina (เขียว) + สปอร์อัลติ (ม่วงทอง) -->
+                        <div class="grid grid-cols-2 gap-1 mt-1">
+                            <div class="h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-fuchsia-400/35">
+                                <div id="p2-spore-bar" class="bar-smooth h-full ml-auto bg-gradient-to-l from-fuchsia-500 to-amber-300 rounded-full" style="width: 0%;"></div>
+                            </div>
+                            <div class="h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-emerald-400/35">
+                                <div id="p2-stam-bar" class="bar-smooth h-full ml-auto bg-gradient-to-l from-emerald-500 to-lime-300 rounded-full" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ===================== 3A. โซนบังคับล่าง: โหมด 1P และ ออนไลน์ (จอยลอย + ปุ่มแนวโค้ง) ===================== -->
+        <section id="controls-single" class="w-full max-w-6xl mx-auto flex-1 flex items-end justify-between gap-2 pb-1">
+            <!-- ซ้ายล่าง: พื้นที่แตะจอยลอย (Floating Joystick Zone) -->
+            <div id="joystick-single-zone" class="interactive-ui floating-joy-area w-[46%] sm:w-[42%] h-[46%] sm:h-[52%] rounded-3xl">
+                <!-- ไกด์ตำแหน่งจอยเริ่มต้น (จะขยับตามนิ้วที่แตะจริง) -->
+                <div id="joystick-single-ring" class="joy-ring opacity-75" style="left: 74px; top: calc(100% - 74px);">
                     <div id="joystick-single-knob" class="joy-knob"></div>
                 </div>
-                <div class="hidden lg:flex flex-col text-[11px] text-slate-400 leading-snug">
-                    <span class="font-bold text-slate-200">🎮 คีย์บอร์ด</span>
-                    <span><kbd class="px-1 bg-slate-800 rounded">WASD</kbd> เดิน • <kbd class="px-1 bg-slate-800 rounded">Space/F</kbd> ฟัน</span>
-                    <span><kbd class="px-1 bg-slate-800 rounded">E/G</kbd> แทง • <kbd class="px-1 bg-slate-800 rounded">Shift/H</kbd> กัน • <kbd class="px-1 bg-slate-800 rounded">Q/R</kbd> อัลติ</span>
+                <div class="hidden lg:flex flex-col text-[11px] text-slate-300/80 bg-slate-950/55 backdrop-blur-sm border border-white/10 rounded-xl px-2.5 py-1.5 absolute top-2 left-2 pointer-events-none">
+                    <span class="font-bold text-amber-300">🎮 คีย์บอร์ด</span>
+                    <span><kbd class="px-1 bg-slate-800 rounded">WASD</kbd> เดิน • <kbd class="px-1 bg-slate-800 rounded">Space/F</kbd> ฟันคอมโบ</span>
+                    <span><kbd class="px-1 bg-slate-800 rounded">C/Alt</kbd> แดช • <kbd class="px-1 bg-slate-800 rounded">E/G</kbd> แทง • <kbd class="px-1 bg-slate-800 rounded">Shift/H</kbd> ปัดป้อง • <kbd class="px-1 bg-slate-800 rounded">Q/R</kbd> อัลติ</span>
                 </div>
             </div>
 
-            <div class="flex items-center gap-2 sm:gap-3">
-                <div class="flex flex-col items-end gap-1.5">
-                    <div class="flex items-center gap-1.5 sm:gap-2">
-                        <button id="touch-ult" class="action-btn btn-ult text-white w-14 h-14 sm:w-16 sm:h-16">
-                            <span class="text-lg sm:text-xl">🌪️</span>
-                            <span class="text-[9px] sm:text-[10px]">สว่าน</span>
-                            <span id="ult-pct" class="text-[9px] font-black text-amber-200">0%</span>
-                        </button>
-                        <button id="touch-thrust" class="action-btn btn-thrust text-white w-14 h-14 sm:w-16 sm:h-16">
-                            <span class="text-lg sm:text-xl">⚡</span>
-                            <span class="text-[10px] sm:text-xs">แทงทะลุ</span>
-                        </button>
-                    </div>
-                    <div class="pr-3">
-                        <button id="touch-guard" class="action-btn btn-guard text-white w-14 h-11 sm:w-16 sm:h-12 rounded-2xl">
-                            <span class="text-base">🛡️</span>
-                            <span class="text-[10px]">ตั้งรับ</span>
-                        </button>
-                    </div>
-                </div>
+            <!-- ขวาล่าง: ปุ่มต่อสู้แนวโค้งรับนิ้วโป้ง (Action Arc) -->
+            <div class="interactive-ui relative w-[205px] h-[195px] sm:w-[245px] sm:h-[230px] shrink-0">
+                <!-- ปุ่มอัลติ (บนซ้ายของโค้ง) -->
+                <button id="touch-ult" class="action-btn btn-ult text-white w-13 h-13 sm:w-16 sm:h-16 absolute top-1 left-2 sm:left-3">
+                    <span class="text-base sm:text-xl">🌪️</span>
+                    <span class="text-[8px] sm:text-[10px]">สว่าน</span>
+                    <span id="ult-pct" class="text-[8px] sm:text-[9px] font-black text-amber-200">0%</span>
+                </button>
 
-                <button id="touch-slash" class="action-btn btn-slash text-white w-20 h-20 sm:w-24 sm:h-24">
+                <!-- ปุ่มแทงทะลุการ์ด (บนขวาของโค้ง) -->
+                <button id="touch-thrust" class="action-btn btn-thrust text-white w-14 h-14 sm:w-17 sm:h-17 absolute top-0 right-3 sm:right-4">
+                    <span class="text-lg sm:text-xl">⚡</span>
+                    <span class="text-[9px] sm:text-[11px]">แทงทะลุ</span>
+                </button>
+
+                <!-- ปุ่มตั้งรับ / ปัดป้อง Parry (กลางซ้ายของโค้ง) -->
+                <button id="touch-guard" class="action-btn btn-guard text-white w-14 h-14 sm:w-17 sm:h-17 absolute bottom-16 sm:bottom-20 left-0">
+                    <span class="text-lg sm:text-xl">🛡️</span>
+                    <span class="text-[9px] sm:text-[11px]">รับ/ปัด</span>
+                </button>
+
+                <!-- ปุ่มแดชหลบ I-Frame (ล่างซ้ายของโค้ง) -->
+                <button id="touch-dash" class="action-btn btn-dash text-white w-14 h-14 sm:w-17 sm:h-17 absolute bottom-1 left-7 sm:left-9">
+                    <span class="text-lg sm:text-xl">💨</span>
+                    <span class="text-[9px] sm:text-[11px]">แดชหลบ</span>
+                </button>
+
+                <!-- ปุ่มฟันคอมโบ 3 จังหวะ (ปุ่มหลักใหญ่สุดมุมขวาล่าง) -->
+                <button id="touch-slash" class="action-btn btn-slash text-white w-21 h-21 sm:w-26 sm:h-26 absolute bottom-1 right-1">
                     <span class="text-2xl sm:text-3xl">🍄</span>
                     <span class="text-xs sm:text-sm font-black mt-0.5">ฟันเห็ด!</span>
+                    <span id="combo-badge-single" class="text-[9px] sm:text-[10px] font-black text-amber-200">คอมโบ 1</span>
                 </button>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- ===================== แผงควบคุมล่าง B: โหมด 2P แท็บเล็ตจอเดียวกัน (Multi-Touch ซ้าย-ขวา) ===================== -->
-    <section id="controls-dual" class="hidden w-full shrink-0 bg-slate-900/92 backdrop-blur-md border border-amber-400/35 rounded-2xl px-2 sm:px-3 py-1.5 shadow-xl">
-        <div class="grid grid-cols-2 gap-2 sm:gap-3 items-center">
+        <!-- ===================== 3B. โซนบังคับล่าง: โหมด 2P แท็บเล็ตจอเดียว (Multi-Touch 2 ฝั่งเต็มจอ) ===================== -->
+        <section id="controls-dual" class="hidden w-full max-w-6xl mx-auto flex-1 grid grid-cols-2 gap-2 pb-1">
             <!-- ฝั่งซ้าย: ผู้เล่น 1 (🔴 P1) -->
-            <div class="flex items-center justify-between gap-1.5 sm:gap-2 pr-2 sm:pr-3 border-r-2 border-white/15">
-                <div class="flex flex-col items-center">
-                    <span class="text-[10px] font-black text-rose-300 mb-0.5">🔴 P1 เดิน</span>
-                    <div id="joystick-p1-zone" class="joy-zone joy-zone-p1 joy-zone-compact">
-                        <div id="joystick-p1-knob" class="joy-knob joy-knob-p1 joy-knob-compact"></div>
+            <div class="relative flex items-end justify-between border-r border-white/15 pr-1.5">
+                <!-- จอยลอย P1 -->
+                <div id="joystick-p1-zone" class="interactive-ui floating-joy-area flex-1 h-[54%] rounded-2xl">
+                    <div id="joystick-p1-ring" class="joy-ring joy-ring-p1 opacity-75" style="left: 52px; top: calc(100% - 54px);">
+                        <div id="joystick-p1-knob" class="joy-knob joy-knob-p1"></div>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-1.5">
-                    <div class="grid grid-cols-2 gap-1">
-                        <button id="p1-btn-thrust" class="action-btn btn-thrust text-white w-11 h-11 sm:w-13 sm:h-13">
-                            <span class="text-sm sm:text-base">⚡</span>
-                            <span class="text-[8px] sm:text-[9px]">แทง</span>
-                        </button>
-                        <button id="p1-btn-ult" class="action-btn btn-ult text-white w-11 h-11 sm:w-13 sm:h-13">
-                            <span class="text-sm sm:text-base">🌪️</span>
-                            <span id="p1-ult-pct" class="text-[8px] font-black text-amber-200">0%</span>
-                        </button>
-                        <button id="p1-btn-guard" class="action-btn btn-guard text-white col-span-2 h-9 sm:h-10 rounded-xl">
-                            <span class="text-xs">🛡️ ตั้งรับ</span>
-                        </button>
-                    </div>
-                    <button id="p1-btn-slash" class="action-btn btn-slash text-white w-16 h-16 sm:w-20 sm:h-20">
+                <!-- ปุ่มต่อสู้ P1 (เรียงโค้งกระชับเหมาะทั้งแท็บเล็ตและมือถือ) -->
+                <div class="interactive-ui relative w-[142px] h-[165px] sm:w-[195px] sm:h-[205px] shrink-0">
+                    <button id="p1-btn-ult" class="action-btn btn-ult text-white w-10 h-10 sm:w-13 sm:h-13 absolute top-1 left-2">
+                        <span class="text-xs sm:text-base">🌪️</span>
+                        <span id="p1-ult-pct" class="text-[8px] font-black text-amber-200">0%</span>
+                    </button>
+                    <button id="p1-btn-thrust" class="action-btn btn-thrust text-white w-11 h-11 sm:w-14 sm:h-14 absolute top-0 right-1">
+                        <span class="text-sm sm:text-lg">⚡</span>
+                        <span class="text-[8px] sm:text-[10px]">แทง</span>
+                    </button>
+                    <button id="p1-btn-guard" class="action-btn btn-guard text-white w-11 h-11 sm:w-14 sm:h-14 absolute bottom-13 sm:bottom-16 left-0">
+                        <span class="text-sm sm:text-lg">🛡️</span>
+                        <span class="text-[8px] sm:text-[10px]">รับ/ปัด</span>
+                    </button>
+                    <button id="p1-btn-dash" class="action-btn btn-dash text-white w-11 h-11 sm:w-14 sm:h-14 absolute bottom-1 left-4 sm:left-6">
+                        <span class="text-sm sm:text-lg">💨</span>
+                        <span class="text-[8px] sm:text-[10px]">แดช</span>
+                    </button>
+                    <button id="p1-btn-slash" class="action-btn btn-slash text-white w-16 h-16 sm:w-21 sm:h-21 absolute bottom-1 right-0.5">
                         <span class="text-xl sm:text-2xl">🍄</span>
-                        <span class="text-[10px] sm:text-xs font-black">ฟัน!</span>
+                        <span class="text-[10px] sm:text-xs font-black">ฟัน P1</span>
                     </button>
                 </div>
             </div>
 
             <!-- ฝั่งขวา: ผู้เล่น 2 (🔵 P2) -->
-            <div class="flex items-center justify-between gap-1.5 sm:gap-2 pl-1">
-                <div class="flex flex-col items-center">
-                    <span class="text-[10px] font-black text-cyan-300 mb-0.5">🔵 P2 เดิน</span>
-                    <div id="joystick-p2-zone" class="joy-zone joy-zone-p2 joy-zone-compact">
-                        <div id="joystick-p2-knob" class="joy-knob joy-knob-p2 joy-knob-compact"></div>
+            <div class="relative flex items-end justify-between pl-1.5">
+                <!-- จอยลอย P2 -->
+                <div id="joystick-p2-zone" class="interactive-ui floating-joy-area flex-1 h-[54%] rounded-2xl">
+                    <div id="joystick-p2-ring" class="joy-ring joy-ring-p2 opacity-75" style="left: 52px; top: calc(100% - 54px);">
+                        <div id="joystick-p2-knob" class="joy-knob joy-knob-p2"></div>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-1.5">
-                    <div class="grid grid-cols-2 gap-1">
-                        <button id="p2-btn-thrust" class="action-btn btn-thrust text-white w-11 h-11 sm:w-13 sm:h-13">
-                            <span class="text-sm sm:text-base">⚡</span>
-                            <span class="text-[8px] sm:text-[9px]">แทง</span>
-                        </button>
-                        <button id="p2-btn-ult" class="action-btn btn-ult text-white w-11 h-11 sm:w-13 sm:h-13">
-                            <span class="text-sm sm:text-base">🌪️</span>
-                            <span id="p2-ult-pct" class="text-[8px] font-black text-amber-200">0%</span>
-                        </button>
-                        <button id="p2-btn-guard" class="action-btn btn-guard text-white col-span-2 h-9 sm:h-10 rounded-xl">
-                            <span class="text-xs">🛡️ ตั้งรับ</span>
-                        </button>
-                    </div>
-                    <button id="p2-btn-slash" class="action-btn btn-slash-p2 text-white w-16 h-16 sm:w-20 sm:h-20">
+                <!-- ปุ่มต่อสู้ P2 -->
+                <div class="interactive-ui relative w-[142px] h-[165px] sm:w-[195px] sm:h-[205px] shrink-0">
+                    <button id="p2-btn-ult" class="action-btn btn-ult text-white w-10 h-10 sm:w-13 sm:h-13 absolute top-1 left-2">
+                        <span class="text-xs sm:text-base">🌪️</span>
+                        <span id="p2-ult-pct" class="text-[8px] font-black text-amber-200">0%</span>
+                    </button>
+                    <button id="p2-btn-thrust" class="action-btn btn-thrust text-white w-11 h-11 sm:w-14 sm:h-14 absolute top-0 right-1">
+                        <span class="text-sm sm:text-lg">⚡</span>
+                        <span class="text-[8px] sm:text-[10px]">แทง</span>
+                    </button>
+                    <button id="p2-btn-guard" class="action-btn btn-guard text-white w-11 h-11 sm:w-14 sm:h-14 absolute bottom-13 sm:bottom-16 left-0">
+                        <span class="text-sm sm:text-lg">🛡️</span>
+                        <span class="text-[8px] sm:text-[10px]">รับ/ปัด</span>
+                    </button>
+                    <button id="p2-btn-dash" class="action-btn btn-dash text-white w-11 h-11 sm:w-14 sm:h-14 absolute bottom-1 left-4 sm:left-6">
+                        <span class="text-sm sm:text-lg">💨</span>
+                        <span class="text-[8px] sm:text-[10px]">แดช</span>
+                    </button>
+                    <button id="p2-btn-slash" class="action-btn btn-slash-p2 text-white w-16 h-16 sm:w-21 sm:h-21 absolute bottom-1 right-0.5">
                         <span class="text-xl sm:text-2xl">🍄</span>
-                        <span class="text-[10px] sm:text-xs font-black">ฟัน!</span>
+                        <span class="text-[10px] sm:text-xs font-black">ฟัน P2</span>
                     </button>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
+    </div>
 
-    <!-- ===================== MODAL 1: ตั้งค่า โหมด และสกินเห็ด ===================== -->
-    <div id="modal-settings" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3">
+    <!-- ===================== 4. ป้ายประกาศกลางจอ (เริ่มเกม / จบยก / จบแมตช์) ===================== -->
+    <div id="banner-overlay" class="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto bg-slate-950/65 backdrop-blur-sm transition-opacity duration-250 p-3">
+        <div class="my-auto bg-gradient-to-b from-slate-800/95 to-slate-950/95 border-2 border-amber-400/70 rounded-3xl p-4 sm:p-6 max-w-lg w-full text-center shadow-2xl">
+            <div id="banner-emoji" class="text-4xl sm:text-5xl mb-1">🍄⚔️🔥</div>
+            <h2 id="banner-title" class="text-xl sm:text-2xl font-black text-amber-300 mb-1">
+                ศึกดาบเห็ด 3D!
+            </h2>
+            <p id="banner-desc" class="text-xs sm:text-sm text-slate-200 mb-3 leading-relaxed">
+                อัปเกรดใหม่! แตะลากฝั่งซ้ายเพื่อเดินอิสระ • ฟันคอมโบ 3 จังหวะ • กด <b>💨 แดชหลบ</b> หรือกด <b>🛡️ รับ/ปัด</b> จังหวะเป๊ะเพื่อสวนกลับ!
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button id="btn-start-match" class="btn-pill active-mode text-white text-xs sm:text-sm font-black px-3 py-2.5 rounded-2xl">
+                    🤖 ดวลบอท 1P
+                </button>
+                <button id="btn-banner-2p" class="btn-pill text-cyan-200 border-cyan-400/50 text-xs sm:text-sm font-black px-3 py-2.5 rounded-2xl">
+                    👥 2P แท็บเล็ตจอเดียว
+                </button>
+                <button id="btn-banner-online" class="btn-pill text-emerald-300 border-emerald-400/50 text-xs sm:text-sm font-black px-3 py-2.5 rounded-2xl">
+                    🌐 ออนไลน์ 2 เครื่อง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== 5. MODAL รวมเมนู: โหมดการเล่น ออนไลน์ สกิน และเสียง ===================== -->
+    <div id="modal-menu" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3">
         <div class="bg-slate-900 border-2 border-amber-400/60 rounded-3xl p-4 sm:p-5 max-w-lg w-full max-h-[90dvh] overflow-y-auto shadow-2xl">
             <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-                <h3 class="text-lg sm:text-xl font-black text-amber-300">🎨 สกินเห็ด & โหมดการเล่น</h3>
-                <button id="btn-close-settings" class="btn-pill text-slate-200 text-sm font-bold px-3 py-1 rounded-xl">✕ ปิด</button>
+                <h3 class="text-lg sm:text-xl font-black text-amber-300">⚙️ เมนูเกม & สกินเห็ด</h3>
+                <button id="btn-close-menu" class="btn-pill text-slate-200 text-xs sm:text-sm font-bold px-3 py-1 rounded-xl">✕ ปิด</button>
             </div>
 
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-slate-400 mb-1.5">เลือกโหมดการเล่น</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="btn-mode-1p" class="btn-pill active-mode text-xs sm:text-sm font-bold px-3 py-2 rounded-xl">🤖 1P สู้บอท</button>
-                    <button id="btn-mode-2p" class="btn-pill text-xs sm:text-sm font-bold px-3 py-2 rounded-xl text-cyan-200">👥 2P แท็บเล็ตจอเดียว</button>
+            <!-- เลือกโหมดการเล่น -->
+            <div class="mb-3.5">
+                <label class="block text-xs font-bold text-slate-400 mb-1.5">โหมดการเล่น</label>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <button id="btn-mode-1p" class="btn-pill active-mode text-xs font-bold px-2 py-2 rounded-xl text-center">🤖 1P บอท</button>
+                    <button id="btn-mode-2p" class="btn-pill text-xs font-bold px-2 py-2 rounded-xl text-cyan-200 text-center">👥 2P จอเดียว</button>
+                    <button id="btn-menu-online" class="btn-pill text-xs font-bold px-2 py-2 rounded-xl text-emerald-300 text-center">🌐 ออนไลน์</button>
                 </div>
                 <div class="mt-2 flex items-center gap-2">
-                    <span class="text-xs font-bold text-slate-300">ระดับบอท:</span>
-                    <select id="select-difficulty" class="btn-pill text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl text-amber-200 bg-slate-800 outline-none flex-1">
-                        <option value="easy">ชิลๆ (ฝึกฟัน)</option>
+                    <span class="text-xs font-bold text-slate-300 shrink-0">ระดับบอท:</span>
+                    <select id="select-difficulty" class="btn-pill text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl text-amber-200 bg-slate-800 outline-none flex-1 min-w-0">
+                        <option value="easy">ชิลๆ (ฝึกคอมโบ & ปัดป้อง)</option>
                         <option value="normal" selected>เอาเรื่อง (สมดุล)</option>
-                        <option value="hard">เทพเห็ด (โหดจัด)</option>
+                        <option value="hard">เทพเห็ด (โหดจัด หลบเก่ง)</option>
                     </select>
                 </div>
             </div>
 
+            <!-- สกิน P1 -->
             <div class="mb-3">
                 <label class="block text-xs font-extrabold text-rose-300 mb-1.5">🔴 สกินดาบเห็ด P1</label>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
@@ -583,7 +618,8 @@
                 </div>
             </div>
 
-            <div class="mb-4">
+            <!-- สกิน P2 -->
+            <div class="mb-3.5">
                 <label class="block text-xs font-extrabold text-cyan-300 mb-1.5">🔵 สกินดาบเห็ด P2</label>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     <button data-player="p2" data-skin="classic" class="skin-btn selected-p2 text-xs font-bold px-2 py-2 rounded-xl">🍄 คลาสสิก</button>
@@ -593,41 +629,40 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
-                <button id="btn-cutscene-toggle" class="btn-pill active-mode text-xs sm:text-sm font-bold px-3 py-2 rounded-xl">🎬 คัทซีน: เปิด</button>
-                <button id="btn-restart" class="btn-pill text-xs sm:text-sm font-bold px-3 py-2 rounded-xl text-rose-200">🔄 รีสตาร์ทแมตช์</button>
+            <!-- เสียง คัทซีน รีสตาร์ท -->
+            <div class="grid grid-cols-3 gap-1.5 pt-2.5 border-t border-white/10">
+                <button id="btn-sound" class="btn-pill text-xs font-bold px-2 py-2 rounded-xl text-slate-200">🔊 เสียง: เปิด</button>
+                <button id="btn-cutscene-toggle" class="btn-pill active-mode text-xs font-bold px-2 py-2 rounded-xl">🎬 คัทซีน: เปิด</button>
+                <button id="btn-restart" class="btn-pill text-xs font-bold px-2 py-2 rounded-xl text-rose-200">🔄 เริ่มใหม่</button>
             </div>
         </div>
     </div>
 
-    <!-- ===================== MODAL 2: ระบบออนไลน์เชื่อมต่อตรงผ่านรหัสห้อง 4 หลัก (PeerJS P2P) ===================== -->
+    <!-- ===================== 6. MODAL ออนไลน์เชื่อมต่อตรงผ่านรหัสห้อง 4 หลัก (PeerJS P2P) ===================== -->
     <div id="modal-online" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3">
         <div class="bg-slate-900 border-2 border-emerald-400/60 rounded-3xl p-4 sm:p-5 max-w-lg w-full max-h-[90dvh] overflow-y-auto shadow-2xl">
-            <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-                <h3 class="text-lg sm:text-xl font-black text-emerald-300">🌐 ออนไลน์ข้ามเครื่อง (รหัส 4 หลัก)</h3>
-                <button id="btn-close-online" class="btn-pill text-slate-200 text-sm font-bold px-3 py-1 rounded-xl">✕ ปิด</button>
+            <div class="flex items-center justify-between mb-2.5 pb-2 border-b border-white/10">
+                <h3 class="text-base sm:text-xl font-black text-emerald-300">🌐 ออนไลน์ 2 เครื่อง (รหัส 4 หลัก)</h3>
+                <button id="btn-close-online" class="btn-pill text-slate-200 text-xs sm:text-sm font-bold px-3 py-1 rounded-xl">✕ ปิด</button>
             </div>
 
-            <!-- วิธีเล่นบนแท็บเล็ต -->
-            <div class="bg-emerald-950/45 border border-emerald-400/30 rounded-2xl p-2.5 mb-3 text-xs text-slate-200 leading-relaxed">
-                <p class="font-bold text-emerald-300 mb-0.5">📱 วิธีดวลออนไลน์ 2 เครื่อง:</p>
-                <p>1) เครื่องแรกกด <b>"สร้างห้อง"</b> จะได้เลข 4 หลัก • 2) เครื่องเพื่อนกดเปิดเกมนี้แล้วกรอกเลข 4 หลักกด <b>"เข้าห้อง"</b> ได้เลย!</p>
-                <p class="text-amber-300 mt-1">💡 ถ้าอยู่ข้างๆ กันบนแท็บเล็ตเครื่องเดียว แนะนำกดปุ่ม <b>👥 2P จอเดียว</b> เล่นพร้อมกันได้ทันทีไม่ต้องต่อเน็ต!</p>
+            <div class="bg-emerald-950/45 border border-emerald-400/30 rounded-2xl p-2.5 mb-2.5 text-[11px] sm:text-xs text-slate-200 leading-relaxed">
+                <p class="font-bold text-emerald-300 mb-0.5">📱 วิธีดวลออนไลน์ข้ามเครื่อง:</p>
+                <p>1) เครื่องแรกกด <b>"สร้างห้อง"</b> จะได้เลข 4 หลัก • 2) เครื่องเพื่อนกรอกเลข 4 หลักกด <b>"เข้าห้อง"</b> ได้เลย!</p>
+                <p class="text-amber-300 mt-1">💡 ถ้าเล่นบนแท็บเล็ตเครื่องเดียวกัน กด <b>👥 2P จอเดียว</b> ได้ทันทีไม่ต้องต่อเน็ต!</p>
             </div>
 
-            <!-- สถานะการเชื่อมต่อ -->
-            <div class="bg-slate-950/75 border border-white/10 rounded-xl px-3 py-2 mb-3 text-xs flex items-center justify-between">
+            <div class="bg-slate-950/75 border border-white/10 rounded-xl px-3 py-1.5 mb-2.5 text-[11px] sm:text-xs">
                 <span id="online-conn-status" class="font-bold text-sky-300">🟢 พร้อมสร้างห้องหรือเข้าห้องออนไลน์!</span>
             </div>
 
-            <!-- มุมมอง A: สร้างห้อง หรือ กรอกเลข 4 หลักเข้าห้อง -->
             <div id="online-lobby-view" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div class="bg-slate-800/70 border border-emerald-400/35 rounded-2xl p-3 flex flex-col justify-between">
                     <div>
                         <h4 class="text-sm font-extrabold text-emerald-300 mb-1">🏠 สร้างห้องใหม่ (P1)</h4>
-                        <p class="text-[11px] text-slate-300 mb-2.5">รับรหัสตัวเลข 4 หลัก เพื่อบอกเพื่อนมากดเข้าห้อง</p>
+                        <p class="text-[11px] text-slate-300 mb-2">รับรหัสตัวเลข 4 หลัก เพื่อบอกเพื่อนมากดเข้าห้อง</p>
                     </div>
-                    <button id="btn-create-room" class="btn-pill active-mode text-sm font-black px-3 py-2.5 rounded-xl w-full">
+                    <button id="btn-create-room" class="btn-pill active-mode text-xs sm:text-sm font-black px-3 py-2 rounded-xl w-full">
                         ➕ สร้างห้องออนไลน์
                     </button>
                 </div>
@@ -635,50 +670,49 @@
                 <div class="bg-slate-800/70 border border-cyan-400/35 rounded-2xl p-3 flex flex-col justify-between">
                     <div>
                         <h4 class="text-sm font-extrabold text-cyan-300 mb-1">🔑 เข้าห้องเพื่อน (P2)</h4>
-                        <input id="input-room-code" type="tel" inputmode="numeric" maxlength="4" placeholder="ใส่เลข 4 หลัก"
-                            class="w-full bg-slate-950 border border-cyan-400/50 rounded-xl px-3 py-2 text-lg font-black tracking-[0.3em] text-center text-amber-300 outline-none focus:border-amber-400 mb-2" />
+                        <input id="input-room-code" type="tel" inputmode="numeric" maxlength="4" placeholder="เลข 4 หลัก"
+                            class="w-full bg-slate-950 border border-cyan-400/50 rounded-xl px-3 py-1.5 text-lg font-black tracking-[0.25em] text-center text-amber-300 outline-none focus:border-amber-400 mb-2" />
                     </div>
-                    <button id="btn-join-room" class="btn-pill text-cyan-200 text-sm font-black px-3 py-2.5 rounded-xl w-full">
+                    <button id="btn-join-room" class="btn-pill text-cyan-200 text-xs sm:text-sm font-black px-3 py-2 rounded-xl w-full">
                         🚀 เชื่อมต่อเข้าห้อง
                     </button>
                 </div>
             </div>
 
-            <!-- มุมมอง B: อยู่ในห้องออนไลน์แล้ว -->
             <div id="online-room-view" class="hidden">
-                <div class="bg-gradient-to-b from-emerald-950/60 to-slate-950 border border-emerald-400/45 rounded-2xl p-4 text-center mb-3">
-                    <span class="text-xs text-emerald-300 font-bold">รหัสห้อง 4 หลัก (บอกเพื่อนได้เลย!)</span>
-                    <div class="flex items-center justify-center gap-2 mt-1 mb-2">
-                        <span id="room-code-display" class="text-4xl font-black tracking-[0.28em] text-amber-300 font-mono">----</span>
-                        <button id="btn-copy-room-code" class="btn-pill text-xs font-bold px-3 py-1.5 rounded-xl text-white">📋 คัดลอก</button>
+                <div class="bg-gradient-to-b from-emerald-950/60 to-slate-950 border border-emerald-400/45 rounded-2xl p-3.5 text-center mb-2.5">
+                    <span class="text-[11px] sm:text-xs text-emerald-300 font-bold">รหัสห้อง 4 หลัก (บอกเพื่อนได้เลย!)</span>
+                    <div class="flex items-center justify-center gap-2 mt-1 mb-1.5">
+                        <span id="room-code-display" class="text-3xl sm:text-4xl font-black tracking-[0.25em] text-amber-300 font-mono">----</span>
+                        <button id="btn-copy-room-code" class="btn-pill text-xs font-bold px-2.5 py-1.5 rounded-xl text-white">📋 คัดลอก</button>
                     </div>
-                    <p id="room-role-badge" class="text-xs font-bold text-slate-200"></p>
+                    <p id="room-role-badge" class="text-[11px] sm:text-xs font-bold text-slate-200"></p>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 mb-3">
-                    <div class="bg-rose-950/40 border border-rose-400/40 rounded-2xl p-2.5 text-center">
+                <div class="grid grid-cols-2 gap-2 mb-2.5">
+                    <div class="bg-rose-950/40 border border-rose-400/40 rounded-2xl p-2 text-center">
                         <div class="text-xs font-black text-rose-300">🔴 เจ้าห้อง (P1)</div>
-                        <div id="room-host-status" class="text-[11px] text-emerald-300 font-bold mt-1">🟢 เชื่อมต่อแล้ว</div>
+                        <div id="room-host-status" class="text-[11px] text-emerald-300 font-bold mt-0.5">🟢 เชื่อมต่อแล้ว</div>
                     </div>
-                    <div class="bg-cyan-950/40 border border-cyan-400/40 rounded-2xl p-2.5 text-center">
+                    <div class="bg-cyan-950/40 border border-cyan-400/40 rounded-2xl p-2 text-center">
                         <div class="text-xs font-black text-cyan-300">🔵 เพื่อน (P2)</div>
-                        <div id="room-guest-status" class="text-[11px] text-amber-200 font-semibold mt-1">⏳ รอเพื่อนกรอกรหัส...</div>
+                        <div id="room-guest-status" class="text-[11px] text-amber-200 font-semibold mt-0.5">⏳ รอเพื่อนกรอกรหัส...</div>
                     </div>
                 </div>
 
                 <div class="flex gap-2">
-                    <button id="btn-start-online-match" class="flex-1 btn-pill active-mode text-sm font-black px-4 py-2.5 rounded-xl disabled:opacity-45" disabled>
+                    <button id="btn-start-online-match" class="flex-1 btn-pill active-mode text-xs sm:text-sm font-black px-3 py-2.5 rounded-xl disabled:opacity-45" disabled>
                         ⚔️ เริ่มดวลออนไลน์!
                     </button>
-                    <button id="btn-leave-room" class="btn-pill text-rose-300 text-sm font-extrabold px-4 py-2.5 rounded-xl">
-                        🚪 ออกจากห้อง
+                    <button id="btn-leave-room" class="btn-pill text-rose-300 text-xs sm:text-sm font-extrabold px-3 py-2.5 rounded-xl">
+                        🚪 ออก
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ===================== สคริปต์หลักของเกม 3D + 2P Multi-Touch + ออนไลน์ P2P ===================== -->
+    <!-- ===================== สคริปต์หลักของเกม 3D + ระบบคอมแบทสมจริง + Smart Camera ===================== -->
     <script>
         // ===================== 0. เครื่องมือแจ้งเตือนและคัดลอกข้อความ =====================
         function showToast(message, type = 'info') {
@@ -690,12 +724,12 @@
                 error: 'bg-rose-950/95 border-rose-400/70 text-rose-200'
             };
             const el = document.createElement('div');
-            el.className = `toast-msg border px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-bold shadow-xl ${colors[type] || colors.info}`;
+            el.className = `toast-msg border px-3 py-1.5 rounded-2xl text-[11px] sm:text-sm font-bold shadow-xl text-center ${colors[type] || colors.info}`;
             el.textContent = message;
             container.appendChild(el);
             setTimeout(() => {
                 if (el.parentNode) el.parentNode.removeChild(el);
-            }, 2600);
+            }, 2500);
         }
 
         function copyTextSafe(text, successMsg) {
@@ -734,7 +768,7 @@
                     Tone.start().catch(() => {});
                     this.synths.swing = new Tone.NoiseSynth({
                         noise: { type: 'pink' },
-                        envelope: { attack: 0.01, decay: 0.14, sustain: 0 }
+                        envelope: { attack: 0.008, decay: 0.13, sustain: 0 }
                     }).toDestination();
                     this.synths.swing.volume.value = -10;
 
@@ -746,17 +780,17 @@
                     this.synths.hit.volume.value = -4;
 
                     this.synths.clash = new Tone.MetalSynth({
-                        frequency: 360,
-                        envelope: { attack: 0.002, decay: 0.28, release: 0.12 },
-                        harmonicity: 5.1,
-                        modulationIndex: 28,
-                        resonance: 2600
+                        frequency: 420,
+                        envelope: { attack: 0.002, decay: 0.34, release: 0.15 },
+                        harmonicity: 5.4,
+                        modulationIndex: 30,
+                        resonance: 3000
                     }).toDestination();
-                    this.synths.clash.volume.value = -8;
+                    this.synths.clash.volume.value = -7;
 
                     this.synths.chime = new Tone.PolySynth(Tone.Synth, {
                         oscillator: { type: 'triangle' },
-                        envelope: { attack: 0.01, decay: 0.25, sustain: 0.1, release: 0.3 }
+                        envelope: { attack: 0.01, decay: 0.22, sustain: 0.08, release: 0.25 }
                     }).toDestination();
                     this.synths.chime.volume.value = -8;
 
@@ -770,19 +804,39 @@
                 } catch (err) {}
             }
 
-            playSwing(heavy = false) {
+            playSwing(heavy = false, comboStep = 1) {
                 if (!this.enabled || !this.initialized) return;
-                try { this.synths.swing.triggerAttackRelease(heavy ? '8n' : '16n'); } catch (e) {}
+                try {
+                    this.synths.swing.triggerAttackRelease(heavy || comboStep === 3 ? '8n' : '16n');
+                } catch (e) {}
+            }
+
+            playDash() {
+                if (!this.enabled || !this.initialized) return;
+                try {
+                    const now = Tone.now();
+                    this.synths.swing.triggerAttackRelease('32n', now);
+                    this.synths.chime.triggerAttackRelease('G5', '32n', now);
+                } catch (e) {}
             }
 
             playHit(heavy = false) {
                 if (!this.enabled || !this.initialized) return;
-                try { this.synths.hit.triggerAttackRelease(heavy ? 'G1' : 'C2', '8n'); } catch (e) {}
+                try { this.synths.hit.triggerAttackRelease(heavy ? 'F1' : 'C2', '8n'); } catch (e) {}
             }
 
             playClash() {
                 if (!this.enabled || !this.initialized) return;
                 try { this.synths.clash.triggerAttackRelease('16n'); } catch (e) {}
+            }
+
+            playParry() {
+                if (!this.enabled || !this.initialized) return;
+                try {
+                    const now = Tone.now();
+                    this.synths.clash.triggerAttackRelease('8n', now);
+                    this.synths.chime.triggerAttackRelease(['E5', 'B5', 'E6'], '8n', now + 0.02);
+                } catch (e) {}
             }
 
             playGuard() {
@@ -893,9 +947,9 @@
         };
 
         const CAMERA_MODES = [
-            { id: 'side', label: '🎥 ดวลข้าง', desc: 'เห็นทั้งสองฝั่งชัด เล่น 2P จอเดียวง่ายสุด!' },
-            { id: 'chase', label: '🎥 ตามหลัง', desc: 'มุมมองด้านหลังตัวละคร สไตล์แอ็กชัน 3D!' },
-            { id: 'top', label: '🎥 มุมสูง', desc: 'มุมสูงกะระยะฟันและเห็ดทองคำง่ายสุด!' }
+            { id: 'iso',  label: '🎥 เฉียง 3D', desc: 'มุมเฉียง 42° เห็นระยะตื้น-ลึกชัด ไม่ตกขอบ!' },
+            { id: 'side', label: '🎥 ดวลข้าง',  desc: 'มุมมองด้านข้างคลาสสิก ยุติธรรมสำหรับ 2P!' },
+            { id: 'top',  label: '🎥 มุมสูง',   desc: 'มุมสูงกะระยะวงฟันและเห็ดทองคำง่ายสุด!' }
         ];
 
         let scene, camera, renderer;
@@ -917,7 +971,7 @@
             currentYaw: 0
         };
 
-        // อินพุตคีย์บอร์ด + จอยสติ๊ก 3 ตัวแยก Multi-Touch อิสระ
+        // อินพุตคีย์บอร์ด + จอยลอย 3 ตัวแยก Multi-Touch อิสระ
         const keys = {};
         const joySingle = { x: 0, y: 0 };
         const joyP1 = { x: 0, y: 0 };
@@ -949,13 +1003,12 @@
             lastBeat: -1
         };
 
-        // สถานะออนไลน์แบบ P2P (PeerJS WebRTC)
         const netState = {
             peer: null,
             conn: null,
             connected: false,
             roomCode: null,
-            role: null,            // 'host' (P1) | 'guest' (P2)
+            role: null,
             lastSyncTime: 0,
             remoteTarget: { x: 3.8, z: 0, facing: -Math.PI / 2, state: 'idle' }
         };
@@ -965,7 +1018,7 @@
             return p1;
         }
 
-        // ===================== 3. คลาสนักสู้ดาบเห็ด 3D =====================
+        // ===================== 3. คลาสนักสู้ดาบเห็ด 3D (อัปเกรดคอมโบ, แดช, ปัดป้อง, Visual Cues) =====================
         class MushroomFighter {
             constructor(config) {
                 this.id = config.id;
@@ -984,9 +1037,12 @@
 
                 this.maxHp = 100;
                 this.hp = 100;
+                this.maxStamina = 100;
+                this.stamina = 100;
                 this.spore = 0;
 
-                this.state = 'idle';
+                // สถานะการต่อสู้
+                this.state = 'idle'; // 'idle', 'slash', 'thrust', 'guard', 'dash', 'spin', 'stunned', 'ko'
                 this.stateTimer = 0;
                 this.stateDuration = 0;
                 this.attackCooldown = 0;
@@ -995,6 +1051,13 @@
                 this.hitFlashTimer = 0;
                 this.giantTimer = 0;
                 this.swordScale = 1.0;
+
+                // คอมโบ 3 จังหวะ + Parry + Dash I-Frame
+                this.comboStep = 0;        // 1, 2, 3
+                this.comboResetTimer = 0;
+                this.parryWindowTimer = 0; // ช่วงปัดป้องสมบูรณ์แบบ 0.24 วินาทีแรกที่กดตั้งรับ
+                this.invulnTimer = 0;      // ช่วงอมตะขณะพุ่งหลบ (I-Frame)
+                this.dashCooldown = 0;
 
                 this.skin = config.skin || 'classic';
                 this.waterDroplets = [];
@@ -1022,6 +1085,7 @@
                 const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
                 const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
+                // ขาซ้าย-ขวา
                 const legGeo = new THREE.CylinderGeometry(0.14, 0.12, 0.68, 10);
                 this.leftLeg = new THREE.Group();
                 this.leftLeg.position.set(-0.24, 0.72, 0);
@@ -1045,6 +1109,7 @@
                 this.rightLeg.add(rLegMesh, rShoe);
                 this.bodyGroup.add(this.rightLeg);
 
+                // สะโพก เข็มขัด ลำตัว
                 const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.40, 0.38, 14), this.pantsMat);
                 pelvis.position.y = 0.86;
                 pelvis.castShadow = true;
@@ -1059,6 +1124,7 @@
                 torso.castShadow = true;
                 this.bodyGroup.add(torso);
 
+                // แขนซ้าย-ขวา
                 const armGeo = new THREE.CylinderGeometry(0.11, 0.10, 0.62, 10);
                 const fistGeo = new THREE.SphereGeometry(0.13, 10, 10);
 
@@ -1084,6 +1150,7 @@
                 this.rightArm.rotation.z = -0.45;
                 this.bodyGroup.add(this.rightArm);
 
+                // ศีรษะ + ผ้าคาดหัว
                 this.headGroup = new THREE.Group();
                 this.headGroup.position.set(0, 2.15, 0);
                 const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 14), skinMat);
@@ -1116,7 +1183,7 @@
                 this.headGroup.add(lBrow, rBrow);
                 this.bodyGroup.add(this.headGroup);
 
-                // ดาบเห็ดตรงเป้ากางเกง
+                // ดาบเห็ดประจำกาย
                 this.hipPivot = new THREE.Group();
                 this.hipPivot.position.set(0, 0.88, 0.36);
                 this.bodyGroup.add(this.hipPivot);
@@ -1191,6 +1258,7 @@
                 this.swordTipRef.position.set(0, 0.12, 2.18);
                 this.swordMeshGroup.add(this.swordTipRef);
 
+                // รอยแสงดาบฟันโค้ง 3D
                 const trailMat = new THREE.MeshBasicMaterial({
                     color: this.glowColor,
                     transparent: true,
@@ -1198,23 +1266,64 @@
                     side: THREE.DoubleSide
                 });
                 this.slashTrail = new THREE.Mesh(
-                    new THREE.RingGeometry(1.1, 2.35, 20, 1, -Math.PI * 0.45, Math.PI * 0.9),
+                    new THREE.RingGeometry(1.15, 2.55, 24, 1, -Math.PI * 0.48, Math.PI * 0.96),
                     trailMat
                 );
                 this.slashTrail.rotation.x = -Math.PI / 2;
-                this.slashTrail.position.set(0, 0.98, 0.25);
+                this.slashTrail.position.set(0, 1.0, 0.25);
                 this.root.add(this.slashTrail);
 
-                const footRingMat = new THREE.MeshBasicMaterial({
+                // === Visual Indicators ช่วยอ่านระยะและจังหวะในสนาม 3D ===
+                // 1. วงแหวนบอกระยะดาบใต้เท้า (สว่างขึ้นเมื่อคู่ต่อสู้เข้าสู่ระยะฟันถึง)
+                this.rangeRingMat = new THREE.MeshBasicMaterial({
                     color: this.glowColor,
                     transparent: true,
-                    opacity: 0.58,
+                    opacity: 0.28,
                     side: THREE.DoubleSide
                 });
-                this.footRing = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.80, 24), footRingMat);
+                this.rangeRing = new THREE.Mesh(new THREE.RingGeometry(2.25, 2.42, 36), this.rangeRingMat);
+                this.rangeRing.rotation.x = -Math.PI / 2;
+                this.rangeRing.position.y = 0.03;
+                this.root.add(this.rangeRing);
+
+                // วงกลมตัวละครใต้เท้า
+                const innerRingMat = new THREE.MeshBasicMaterial({
+                    color: this.glowColor,
+                    transparent: true,
+                    opacity: 0.72,
+                    side: THREE.DoubleSide
+                });
+                this.footRing = new THREE.Mesh(new THREE.RingGeometry(0.56, 0.74, 24), innerRingMat);
                 this.footRing.rotation.x = -Math.PI / 2;
-                this.footRing.position.y = 0.03;
+                this.footRing.position.y = 0.04;
                 this.root.add(this.footRing);
+
+                // 2. โล่พลังงานโปร่งแสง 3D เวลาตั้งรับ / ปัดป้อง
+                this.shieldMat = new THREE.MeshBasicMaterial({
+                    color: 0x38bdf8,
+                    transparent: true,
+                    opacity: 0,
+                    side: THREE.DoubleSide
+                });
+                this.guardShield = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.18, 18, 14, -Math.PI * 0.35, Math.PI * 0.7, 0.2, Math.PI * 0.65),
+                    this.shieldMat
+                );
+                this.guardShield.position.set(0, 1.15, 0.35);
+                this.guardShield.rotation.y = Math.PI / 2;
+                this.root.add(this.guardShield);
+
+                // 3. แถบเตือนสีแดงบนพื้นตอนง้างท่าพุ่งแทง (Telegraph Line)
+                this.telegraphMat = new THREE.MeshBasicMaterial({
+                    color: 0xfacc15,
+                    transparent: true,
+                    opacity: 0,
+                    side: THREE.DoubleSide
+                });
+                this.thrustTelegraph = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 4.4), this.telegraphMat);
+                this.thrustTelegraph.rotation.x = -Math.PI / 2;
+                this.thrustTelegraph.position.set(0, 0.05, 2.5);
+                this.root.add(this.thrustTelegraph);
             }
 
             applySkin(skinId) {
@@ -1448,46 +1557,122 @@
                 this.vz = 0;
                 this.facing = this.startX < 0 ? Math.PI / 2 : -Math.PI / 2;
                 this.hp = this.maxHp;
+                this.stamina = this.maxStamina;
                 this.state = 'idle';
                 this.stateTimer = 0;
                 this.stateDuration = 0;
                 this.attackCooldown = 0;
+                this.dashCooldown = 0;
                 this.hasHitThisSwing = false;
                 this.hitFlashTimer = 0;
                 this.giantTimer = 0;
                 this.swordScale = 1.0;
+                this.comboStep = 0;
+                this.comboResetTimer = 0;
+                this.parryWindowTimer = 0;
+                this.invulnTimer = 0;
                 this.bodyGroup.rotation.set(0, 0, 0);
                 this.bodyGroup.position.set(0, 0, 0);
                 this.syncTransform();
             }
 
+            /** คอมโบฟัน 3 จังหวะ: 1 ฟันกวาดขวา -> 2 ฟันตวัดซ้าย -> 3 หมุนตัวฟาดหนัก */
             triggerSlash(fromRemote = false) {
-                if (!fromRemote && this.attackCooldown > 0) return;
-                if (!fromRemote && this.state !== 'idle' && this.state !== 'guard') return;
+                if (!fromRemote) {
+                    if (this.attackCooldown > 0) return;
+                    if (this.state !== 'idle' && this.state !== 'guard' && this.state !== 'dash') return;
+                }
+
+                if (this.comboResetTimer > 0 && this.comboStep < 3) {
+                    this.comboStep += 1;
+                } else {
+                    this.comboStep = 1;
+                }
+
                 this.state = 'slash';
                 this.stateTimer = 0;
-                this.stateDuration = 0.36;
-                this.attackCooldown = 0.40;
+                this.stateDuration = this.comboStep === 3 ? 0.44 : 0.32;
+                // จังหวะ 1-2 ต่อคอมโบได้ไว, จังหวะ 3 มีระยะพักหลังฟาดหนัก
+                this.attackCooldown = this.comboStep === 3 ? 0.46 : 0.24;
+                this.comboResetTimer = 0.95;
                 this.hasHitThisSwing = false;
-                sound.playSwing(false);
+
+                // ก้าวเท้าพุ่งไปข้างหน้าเล็กน้อยตามจังหวะดาบเพื่อความสมจริง
+                const stepImpulse = this.comboStep === 3 ? 6.2 : 3.6;
+                this.vx += Math.sin(this.facing) * stepImpulse;
+                this.vz += Math.cos(this.facing) * stepImpulse;
+
+                sound.playSwing(this.comboStep === 3, this.comboStep);
                 if (!fromRemote && gameState.mode === 'online' && this === getControlledFighter()) {
-                    sendNetMessage({ type: 'action', action: 'slash' });
+                    sendNetMessage({ type: 'action', action: 'slash', combo: this.comboStep });
                 }
             }
 
+            /** ท่าพุ่งแทงทะลุการ์ด (ใช้ Stamina 26) */
             triggerThrust(fromRemote = false) {
-                if (!fromRemote && this.attackCooldown > 0) return;
-                if (!fromRemote && this.state !== 'idle' && this.state !== 'guard') return;
+                if (!fromRemote) {
+                    if (this.attackCooldown > 0) return;
+                    if (this.state !== 'idle' && this.state !== 'guard' && this.state !== 'dash') return;
+                    if (this.stamina < 24) {
+                        if (this === getControlledFighter()) showToast('⚡ Stamina ไม่พอสำหรับพุ่งแทง!', 'info');
+                        return;
+                    }
+                    this.stamina = Math.max(0, this.stamina - 24);
+                }
+                this.comboStep = 0;
                 this.state = 'thrust';
                 this.stateTimer = 0;
-                this.stateDuration = 0.46;
-                this.attackCooldown = 0.58;
+                this.stateDuration = 0.48;
+                this.attackCooldown = 0.56;
                 this.hasHitThisSwing = false;
-                this.vx += Math.sin(this.facing) * 10.5;
-                this.vz += Math.cos(this.facing) * 10.5;
-                sound.playSwing(true);
+                this.vx += Math.sin(this.facing) * 11.8;
+                this.vz += Math.cos(this.facing) * 11.8;
+                sound.playSwing(true, 3);
                 if (!fromRemote && gameState.mode === 'online' && this === getControlledFighter()) {
                     sendNetMessage({ type: 'action', action: 'thrust' });
+                }
+            }
+
+            /** ท่าพุ่งหลบ 360° พร้อมช่วงอมตะ I-Frame 0.24 วินาที (ใช้ Stamina 22) */
+            triggerDash(dirX = 0, dirZ = 0, fromRemote = false) {
+                if (!fromRemote) {
+                    if (this.dashCooldown > 0) return;
+                    if (this.state === 'stunned' || this.state === 'ko' || this.state === 'spin') return;
+                    if (this.stamina < 22) {
+                        if (this === getControlledFighter()) showToast('💨 Stamina ไม่พอสำหรับแดชหลบ!', 'info');
+                        return;
+                    }
+                    this.stamina = Math.max(0, this.stamina - 22);
+                }
+
+                this.state = 'dash';
+                this.stateTimer = 0;
+                this.stateDuration = 0.24;
+                this.dashCooldown = 0.48;
+                this.invulnTimer = 0.24;
+                this.comboStep = 0;
+
+                let dx = dirX;
+                let dz = dirZ;
+                const len = Math.hypot(dx, dz);
+                if (len > 0.05) {
+                    dx /= len;
+                    dz /= len;
+                    this.facing = Math.atan2(dx, dz);
+                } else {
+                    // ถ้าไม่โยกจอย จะแดชออกข้างขวาเพื่อหลบแนวพุ่งแทง
+                    const sideAngle = this.facing + Math.PI * 0.55;
+                    dx = Math.sin(sideAngle);
+                    dz = Math.cos(sideAngle);
+                }
+
+                this.vx = dx * 15.5;
+                this.vz = dz * 15.5;
+                sound.playDash();
+                spawnSporeExplosion(this.x, 0.7, this.z, 0x6ee7b7, 10);
+
+                if (!fromRemote && gameState.mode === 'online' && this === getControlledFighter()) {
+                    sendNetMessage({ type: 'action', action: 'dash', dx, dz });
                 }
             }
 
@@ -1496,6 +1681,7 @@
                 if (!fromRemote && (this.state === 'stunned' || this.state === 'ko' || this.state === 'spin')) return;
 
                 this.spore = 0;
+                this.comboStep = 0;
                 const skinCfg = SKIN_CONFIGS[this.skin] || SKIN_CONFIGS.classic;
 
                 if (!fromRemote && gameState.mode === 'online' && this === getControlledFighter()) {
@@ -1509,7 +1695,7 @@
                     this.attackCooldown = 0.2;
                     this.spinTickTimer = 0;
                     sound.playSpin();
-                    spawnCallout(`🌪️ ${skinCfg.ultName}`, this.x, 2.6, this.z, '#f0abfc', '1.45rem');
+                    spawnCallout(`🌪️ ${skinCfg.ultName}`, this.x, 2.6, this.z, '#f0abfc', '1.35rem');
                     spawnSporeExplosion(this.x, 1.2, this.z, skinCfg.hitColor || this.glowColor, 24);
                 };
 
@@ -1522,9 +1708,16 @@
 
             setGuard(active) {
                 if (active) {
-                    if (this.state === 'idle') this.state = 'guard';
+                    if (this.state === 'idle' && this.stamina > 5) {
+                        this.state = 'guard';
+                        // เปิดหน้าต่าง Perfect Parry 0.24 วินาทีแรกที่เริ่มยกโล่
+                        this.parryWindowTimer = 0.24;
+                    }
                 } else {
-                    if (this.state === 'guard') this.state = 'idle';
+                    if (this.state === 'guard') {
+                        this.state = 'idle';
+                        this.parryWindowTimer = 0;
+                    }
                 }
             }
 
@@ -1539,10 +1732,24 @@
 
             update(dt, moveX, moveZ, opponent, isRemoteControlled = false) {
                 if (this.attackCooldown > 0) this.attackCooldown -= dt;
+                if (this.dashCooldown > 0) this.dashCooldown -= dt;
+                if (this.invulnTimer > 0) this.invulnTimer -= dt;
+                if (this.parryWindowTimer > 0) this.parryWindowTimer -= dt;
+                if (this.comboResetTimer > 0) {
+                    this.comboResetTimer -= dt;
+                    if (this.comboResetTimer <= 0) this.comboStep = 0;
+                }
 
+                // ฟื้นฟู Stamina อัตโนมัติ (ฟื้นช้าลงตอนตั้งรับ)
+                if (gameState.phase === 'playing' && this.state !== 'ko') {
+                    const regenRate = this.state === 'guard' ? 8 : 26;
+                    this.stamina = Math.min(this.maxStamina, this.stamina + regenRate * dt);
+                }
+
+                // เอฟเฟกต์เห็ดทองคำ
                 if (this.giantTimer > 0) {
                     this.giantTimer -= dt;
-                    this.swordScale += (1.85 - this.swordScale) * Math.min(1, dt * 8);
+                    this.swordScale += (1.75 - this.swordScale) * Math.min(1, dt * 8);
                     this.capMat.emissive.setHex(0xfbbf24);
                     this.capMat.emissiveIntensity = 0.55 + Math.sin(gameState.clockTime * 12) * 0.25;
                 } else {
@@ -1565,9 +1772,11 @@
                     this.suitMat.emissiveIntensity = 0;
                 }
 
+                // อัปเดตตัวนับเวลาท่าโจมตี/แดช/สตั๊น
                 if (
                     this.state === 'slash' ||
                     this.state === 'thrust' ||
+                    this.state === 'dash' ||
                     this.state === 'spin' ||
                     this.state === 'stunned'
                 ) {
@@ -1576,6 +1785,31 @@
                         this.state = 'idle';
                         this.stateTimer = 0;
                     }
+                }
+
+                // อัปเดตตัวช่วยมองเกม 3D (Visual Indicators)
+                if (opponent) {
+                    const distToOpp = Math.hypot(opponent.x - this.x, opponent.z - this.z);
+                    const reach = 2.45 * this.swordScale;
+                    const inRange = distToOpp <= reach;
+                    this.rangeRing.scale.setScalar(this.swordScale);
+                    this.rangeRingMat.opacity = inRange ? 0.72 : 0.22;
+                    this.rangeRingMat.color.setHex(inRange ? 0xfde047 : this.glowColor);
+                }
+
+                // โล่พลังงานตอนตั้งรับ & แสงทองช่วง Parry
+                if (this.state === 'guard') {
+                    this.shieldMat.opacity = this.parryWindowTimer > 0 ? 0.65 : 0.32;
+                    this.shieldMat.color.setHex(this.parryWindowTimer > 0 ? 0xfef08a : 0x38bdf8);
+                } else {
+                    this.shieldMat.opacity = 0;
+                }
+
+                // แถบเตือนบนพื้นตอนง้างท่าพุ่งแทง
+                if (this.state === 'thrust' && this.stateTimer / this.stateDuration < 0.35) {
+                    this.telegraphMat.opacity = 0.55;
+                } else {
+                    this.telegraphMat.opacity = 0;
                 }
 
                 if (isRemoteControlled) {
@@ -1599,21 +1833,24 @@
                 } else {
                     const canMove = this.state === 'idle' || this.state === 'guard' || this.state === 'spin';
                     if (canMove && gameState.phase === 'playing') {
-                        let speed = 6.0;
-                        if (this.state === 'guard') speed = 3.0;
-                        if (this.state === 'spin') speed = 6.6;
+                        let speed = 6.2;
+                        if (this.state === 'guard') speed = 3.1;
+                        if (this.state === 'spin') speed = 6.8;
 
                         const len = Math.hypot(moveX, moveZ);
                         if (len > 0.01) {
                             const mag = Math.min(1, len);
                             const nx = moveX / len;
                             const nz = moveZ / len;
-                            this.vx += (nx * speed * mag - this.vx) * Math.min(1, dt * 14);
-                            this.vz += (nz * speed * mag - this.vz) * Math.min(1, dt * 14);
+                            this.vx += (nx * speed * mag - this.vx) * Math.min(1, dt * 15);
+                            this.vz += (nz * speed * mag - this.vz) * Math.min(1, dt * 15);
                         } else {
                             this.vx *= Math.pow(0.0008, dt);
                             this.vz *= Math.pow(0.0008, dt);
                         }
+                    } else if (this.state === 'dash') {
+                        this.vx *= Math.pow(0.08, dt);
+                        this.vz *= Math.pow(0.08, dt);
                     } else {
                         this.vx *= Math.pow(0.015, dt);
                         this.vz *= Math.pow(0.015, dt);
@@ -1629,7 +1866,9 @@
                         this.z *= ratio;
                     }
 
-                    if (opponent && this.state !== 'ko' && this.state !== 'spin') {
+                    // Attack Commitment: หันตามศัตรูเฉพาะตอนยืน/เดิน/ตั้งรับ ไม่หมุนตามตอนกำลังออกท่าฟัน/แทง!
+                    const canTurn = this.state === 'idle' || this.state === 'guard';
+                    if (opponent && canTurn) {
                         const targetAngle = Math.atan2(opponent.x - this.x, opponent.z - this.z);
                         let diff = targetAngle - this.facing;
                         while (diff > Math.PI) diff -= Math.PI * 2;
@@ -1647,10 +1886,10 @@
                 const moveSpeed = Math.hypot(this.vx, this.vz);
 
                 if (moveSpeed > 0.35 && this.state !== 'ko' && !this.state.startsWith('cutscene_')) {
-                    const walkPhase = t * 13;
-                    this.leftLeg.rotation.x = Math.sin(walkPhase) * 0.55;
-                    this.rightLeg.rotation.x = -Math.sin(walkPhase) * 0.55;
-                    this.bodyGroup.position.y = Math.abs(Math.sin(walkPhase)) * 0.09;
+                    const walkPhase = t * 14;
+                    this.leftLeg.rotation.x = Math.sin(walkPhase) * 0.58;
+                    this.rightLeg.rotation.x = -Math.sin(walkPhase) * 0.58;
+                    this.bodyGroup.position.y = Math.abs(Math.sin(walkPhase)) * 0.10;
                 } else {
                     this.leftLeg.rotation.x *= 0.82;
                     this.rightLeg.rotation.x *= 0.82;
@@ -1662,6 +1901,7 @@
                 let hipRotY = 0;
                 let hipZ = 0;
                 let swordPitch = -0.12;
+                let swordRoll = 0;
                 let swordStretchZ = 1.0;
                 let bodyTiltX = 0;
                 let bodyRotZ = 0;
@@ -1721,41 +1961,80 @@
                     hipRotY = Math.sin(t * 3) * 0.06;
                     this.leftArm.rotation.x = 0;
                     this.rightArm.rotation.x = 0;
+                } else if (this.state === 'dash') {
+                    bodyTiltX = 0.35;
+                    bodyRotZ = 0.25;
+                    swordPitch = -0.45;
+                    this.leftArm.rotation.z = 1.2;
+                    this.rightArm.rotation.z = -1.2;
                 } else if (this.state === 'slash') {
                     const p = this.stateTimer / this.stateDuration;
-                    if (p < 0.25) {
-                        const k = p / 0.25;
-                        hipRotY = -1.25 * k;
-                        bodyTiltX = -0.12 * k;
-                    } else if (p < 0.68) {
-                        const k = (p - 0.25) / 0.43;
-                        hipRotY = -1.25 + 2.65 * k;
-                        swordStretchZ = 1.24;
-                        trailOpacity = Math.sin(k * Math.PI) * 0.78;
-                        this.leftArm.rotation.z = 1.1;
-                        this.rightArm.rotation.z = -1.1;
+                    if (this.comboStep === 2) {
+                        // จังหวะ 2: ตวัดกลับจากขวาไปซ้าย
+                        if (p < 0.22) {
+                            const k = p / 0.22;
+                            hipRotY = 1.35 * k;
+                            bodyTiltX = -0.1 * k;
+                        } else if (p < 0.70) {
+                            const k = (p - 0.22) / 0.48;
+                            hipRotY = 1.35 - 2.75 * k;
+                            bodyTiltX = 0.14;
+                            swordRoll = -0.25;
+                            swordStretchZ = 1.26;
+                            trailOpacity = Math.sin(k * Math.PI) * 0.82;
+                            this.leftArm.rotation.z = 1.15;
+                            this.rightArm.rotation.z = -1.15;
+                        } else {
+                            const k = (p - 0.70) / 0.30;
+                            hipRotY = -1.4 * (1 - k);
+                        }
+                    } else if (this.comboStep === 3) {
+                        // จังหวะ 3: หมุนตัว 360° ฟาดปิดท้าย
+                        this.facing += dt * 16;
+                        bodyTiltX = 0.22;
+                        swordPitch = -0.05;
+                        swordStretchZ = 1.42;
+                        trailOpacity = Math.sin(p * Math.PI) * 0.92;
+                        this.leftArm.rotation.z = 1.4;
+                        this.rightArm.rotation.z = -1.4;
                     } else {
-                        const k = (p - 0.68) / 0.32;
-                        hipRotY = 1.4 * (1 - k);
+                        // จังหวะ 1: ฟันกวาดจากซ้ายไปขวา
+                        if (p < 0.22) {
+                            const k = p / 0.22;
+                            hipRotY = -1.3 * k;
+                            bodyTiltX = -0.12 * k;
+                        } else if (p < 0.70) {
+                            const k = (p - 0.22) / 0.48;
+                            hipRotY = -1.3 + 2.7 * k;
+                            bodyTiltX = 0.14;
+                            swordRoll = 0.25;
+                            swordStretchZ = 1.24;
+                            trailOpacity = Math.sin(k * Math.PI) * 0.78;
+                            this.leftArm.rotation.z = 1.1;
+                            this.rightArm.rotation.z = -1.1;
+                        } else {
+                            const k = (p - 0.70) / 0.30;
+                            hipRotY = 1.4 * (1 - k);
+                        }
                     }
                 } else if (this.state === 'thrust') {
                     const p = this.stateTimer / this.stateDuration;
-                    if (p < 0.25) {
-                        const k = p / 0.25;
-                        hipZ = -0.22 * k;
-                        bodyTiltX = -0.22 * k;
+                    if (p < 0.28) {
+                        const k = p / 0.28;
+                        hipZ = -0.24 * k;
+                        bodyTiltX = -0.24 * k;
                         swordStretchZ = 0.85;
-                    } else if (p < 0.65) {
-                        const k = (p - 0.25) / 0.40;
-                        hipZ = 0.55 * Math.sin(k * Math.PI * 0.7);
-                        bodyTiltX = 0.26;
+                    } else if (p < 0.68) {
+                        const k = (p - 0.28) / 0.40;
+                        hipZ = 0.58 * Math.sin(k * Math.PI * 0.7);
+                        bodyTiltX = 0.28;
                         swordPitch = -0.02;
-                        swordStretchZ = 1.55;
-                        trailOpacity = 0.5;
+                        swordStretchZ = 1.58;
+                        trailOpacity = 0.55;
                     } else {
-                        const k = (p - 0.65) / 0.35;
+                        const k = (p - 0.68) / 0.32;
                         hipZ = 0.35 * (1 - k);
-                        swordStretchZ = 1.55 - 0.55 * k;
+                        swordStretchZ = 1.58 - 0.58 * k;
                     }
                 } else if (this.state === 'guard') {
                     hipRotY = 0.88;
@@ -1779,6 +2058,7 @@
                 this.hipPivot.rotation.y = hipRotY;
                 this.hipPivot.position.z = 0.36 + hipZ;
                 this.swordMeshGroup.rotation.x = swordPitch;
+                this.swordMeshGroup.rotation.z = swordRoll;
                 this.swordMeshGroup.scale.set(
                     this.swordScale,
                     this.swordScale,
@@ -1793,6 +2073,7 @@
                 if (
                     this.state !== 'slash' &&
                     this.state !== 'spin' &&
+                    this.state !== 'dash' &&
                     this.state !== 'cutscene_flex' &&
                     this.state !== 'cutscene_ult' &&
                     this.state !== 'cutscene_victory'
@@ -1808,12 +2089,12 @@
             }
         }
 
-        // ===================== 4. สร้างฉาก 3D =====================
+        // ===================== 4. สร้างฉาก 3D โทนสว่างอ่านตำแหน่งง่าย =====================
         function initScene() {
             const wrapper = document.getElementById('game-canvas-wrapper');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0b1026);
-            scene.fog = new THREE.FogExp2(0x0b1026, 0.022);
+            scene.background = new THREE.Color(0x0c132d);
+            scene.fog = new THREE.FogExp2(0x0c132d, 0.018);
 
             camera = new THREE.PerspectiveCamera(48, wrapper.clientWidth / wrapper.clientHeight, 0.1, 120);
 
@@ -1824,10 +2105,10 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             wrapper.insertBefore(renderer.domElement, wrapper.firstChild);
 
-            scene.add(new THREE.HemisphereLight(0xdbeafe, 0x1e1b4b, 0.95));
+            scene.add(new THREE.HemisphereLight(0xe0f2fe, 0x1e1b4b, 1.05));
 
-            const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.2);
-            dirLight.position.set(10, 18, 12);
+            const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.25);
+            dirLight.position.set(10, 19, 12);
             dirLight.castShadow = true;
             dirLight.shadow.mapSize.width = 1024;
             dirLight.shadow.mapSize.height = 1024;
@@ -1840,14 +2121,15 @@
             dirLight.shadow.camera.bottom = -d;
             scene.add(dirLight);
 
-            const purpleRim = new THREE.PointLight(0xa855f7, 1.35, 28);
+            const purpleRim = new THREE.PointLight(0xa855f7, 1.35, 30);
             purpleRim.position.set(-10, 6, -10);
             scene.add(purpleRim);
 
-            const cyanRim = new THREE.PointLight(0x38bdf8, 1.3, 28);
+            const cyanRim = new THREE.PointLight(0x38bdf8, 1.35, 30);
             cyanRim.position.set(10, 6, -10);
             scene.add(cyanRim);
 
+            // ฐานเวทีและพื้นสนามโทนเขียวสว่างอ่านตำแหน่งใน 3D ชัดเจน
             const arenaMesh = new THREE.Mesh(
                 new THREE.CylinderGeometry(ARENA_RADIUS, ARENA_RADIUS + 0.8, 0.9, 48),
                 new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.78 })
@@ -1858,12 +2140,32 @@
 
             const grassDisk = new THREE.Mesh(
                 new THREE.CircleGeometry(ARENA_RADIUS - 0.35, 48),
-                new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 })
+                new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.82 })
             );
             grassDisk.rotation.x = -Math.PI / 2;
             grassDisk.position.y = 0.01;
             grassDisk.receiveShadow = true;
             scene.add(grassDisk);
+
+            // เส้นวงกลมวัดระยะในสนาม (ช่วยให้กะระยะลึกบนหน้าจอ 3D ได้ง่ายขึ้นมาก)
+            [2.4, 5.2].forEach((r) => {
+                const guideRing = new THREE.Mesh(
+                    new THREE.RingGeometry(r - 0.06, r + 0.06, 48),
+                    new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.24, side: THREE.DoubleSide })
+                );
+                guideRing.rotation.x = -Math.PI / 2;
+                guideRing.position.y = 0.018;
+                scene.add(guideRing);
+            });
+
+            // เส้นแบ่งฝั่งซ้าย-ขวาจางๆ
+            const midLine = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.10, (ARENA_RADIUS - 0.5) * 2),
+                new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, side: THREE.DoubleSide })
+            );
+            midLine.rotation.x = -Math.PI / 2;
+            midLine.position.y = 0.018;
+            scene.add(midLine);
 
             const borderRing = new THREE.Mesh(
                 new THREE.TorusGeometry(ARENA_RADIUS - 0.25, 0.14, 12, 64),
@@ -1878,18 +2180,11 @@
             borderRing.position.y = 0.04;
             scene.add(borderRing);
 
-            const centerRing = new THREE.Mesh(
-                new THREE.RingGeometry(1.75, 1.98, 36),
-                new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
-            );
-            centerRing.rotation.x = -Math.PI / 2;
-            centerRing.position.y = 0.02;
-            scene.add(centerRing);
-
+            // เห็ดยักษ์เรืองแสงตกแต่งรอบสนาม
             const decoColors = [0xef4444, 0xa855f7, 0x06b6d4, 0xf59e0b, 0xec4899, 0x22c55e];
             for (let i = 0; i < 14; i++) {
                 const angle = (i / 14) * Math.PI * 2 + 0.15;
-                const dist = ARENA_RADIUS + 2.5 + (i % 3) * 1.6;
+                const dist = ARENA_RADIUS + 2.6 + (i % 3) * 1.6;
                 const scale = 0.85 + (i % 4) * 0.45;
                 const capColor = decoColors[i % decoColors.length];
 
@@ -1940,7 +2235,7 @@
                 suitColor: 0xb91c1c,
                 pantsColor: 0x1e293b,
                 glowColor: 0xff6b6b,
-                startX: -3.8,
+                startX: -3.6,
                 skin: gameState.p1Skin
             });
 
@@ -1951,7 +2246,7 @@
                 suitColor: 0x1d4ed8,
                 pantsColor: 0x1e1b4b,
                 glowColor: 0x38bdf8,
-                startX: 3.8,
+                startX: 3.6,
                 skin: gameState.p2Skin
             });
         }
@@ -2001,7 +2296,7 @@
             });
         }
 
-        function spawnCallout(text, worldX, worldY, worldZ, color = '#fde047', fontSize = '1.2rem') {
+        function spawnCallout(text, worldX, worldY, worldZ, color = '#fde047', fontSize = '1.1rem') {
             const layer = document.getElementById('callout-layer');
             if (!layer || !camera) return;
             const vec = new THREE.Vector3(worldX, worldY, worldZ);
@@ -2009,15 +2304,18 @@
             const x = (vec.x * 0.5 + 0.5) * layer.clientWidth;
             const y = (-vec.y * 0.5 + 0.5) * layer.clientHeight;
 
+            const isSmallScreen = layer.clientWidth < 500;
+            const padX = isSmallScreen ? 75 : 95;
+
             const el = document.createElement('div');
             el.className = 'callout-text';
             el.textContent = text;
-            el.style.left = `${Math.max(60, Math.min(layer.clientWidth - 60, x))}px`;
-            el.style.top = `${Math.max(30, Math.min(layer.clientHeight - 30, y))}px`;
+            el.style.left = `${Math.max(padX, Math.min(layer.clientWidth - padX, x))}px`;
+            el.style.top = `${Math.max(54, Math.min(layer.clientHeight - 70, y))}px`;
             el.style.color = color;
-            el.style.fontSize = fontSize;
+            el.style.fontSize = isSmallScreen ? '0.95rem' : fontSize;
             layer.appendChild(el);
-            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1020);
+            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1040);
         }
 
         function createGoldenMeshAt(gx, gz) {
@@ -2057,7 +2355,7 @@
             const gz = Math.sin(angle) * radius;
             createGoldenMeshAt(gx, gz);
             spawnSporeExplosion(gx, 0.7, gz, 0xfde047, 16);
-            spawnCallout('✨ เห็ดทองคำปรากฏตัว!', gx, 1.8, gz, '#fde047', '1.15rem');
+            spawnCallout('✨ เห็ดทองคำปรากฏตัว!', gx, 1.8, gz, '#fde047', '1.1rem');
         }
 
         function updateGoldenMushroom(dt) {
@@ -2084,10 +2382,11 @@
                 const d = Math.hypot(fighter.x - goldenMushroom.x, fighter.z - goldenMushroom.z);
                 if (d < 1.35) {
                     fighter.giantTimer = 7.5;
+                    fighter.stamina = fighter.maxStamina;
                     fighter.spore = Math.min(100, fighter.spore + 25);
                     sound.playPowerup();
                     spawnSporeExplosion(goldenMushroom.x, 1.0, goldenMushroom.z, 0xfde047, 24);
-                    spawnCallout('🍄✨ ดาบเห็ดยักษ์!!', fighter.x, 2.5, fighter.z, '#fde047', '1.4rem');
+                    spawnCallout('🍄✨ ดาบเห็ดยักษ์!!', fighter.x, 2.5, fighter.z, '#fde047', '1.35rem');
                     sendHostEvent('🍄✨ ดาบเห็ดยักษ์!!', '#fde047', fighter.x, fighter.z, 'powerup');
                     scene.remove(goldenMushroom.mesh);
                     goldenMushroom = null;
@@ -2095,15 +2394,15 @@
             });
         }
 
-        // ===================== 6. ระบบต่อสู้ ปะทะดาบเห็ด และ AI =====================
+        // ===================== 6. ระบบต่อสู้สมจริง: Arc Hitbox, Dash Dodge, Perfect Parry & AI =====================
         function isAttackActive(fighter) {
             if (fighter.state === 'slash') {
                 const p = fighter.stateTimer / fighter.stateDuration;
-                return p >= 0.22 && p <= 0.70;
+                return p >= 0.20 && p <= 0.72;
             }
             if (fighter.state === 'thrust') {
                 const p = fighter.stateTimer / fighter.stateDuration;
-                return p >= 0.22 && p <= 0.68;
+                return p >= 0.26 && p <= 0.70;
             }
             if (fighter.state === 'spin') return true;
             return false;
@@ -2115,8 +2414,8 @@
             const dx = p2.x - p1.x;
             const dz = p2.z - p1.z;
             const bodyDist = Math.hypot(dx, dz) || 0.001;
-            const minSep = 1.28;
-            if (bodyDist < minSep) {
+            const minSep = 1.24;
+            if (bodyDist < minSep && p1.invulnTimer <= 0 && p2.invulnTimer <= 0) {
                 const push = (minSep - bodyDist) * 0.5;
                 const nx = dx / bodyDist;
                 const nz = dz / bodyDist;
@@ -2133,19 +2432,20 @@
             const p1Pts = p1.getSwordPoints();
             const p2Pts = p2.getSwordPoints();
 
+            // 1. ดาบเห็ดปะทะกันกลางอากาศ (Sword Clash)
             if (p1Active && p2Active && !p1.hasHitThisSwing && !p2.hasHitThisSwing) {
                 const swordDist = p1Pts.tip.distanceTo(p2Pts.tip);
                 const midDist = p1Pts.mid.distanceTo(p2Pts.mid);
-                if (swordDist < 1.38 * Math.max(p1.swordScale, p2.swordScale) || midDist < 1.18) {
+                if (swordDist < 1.45 * Math.max(p1.swordScale, p2.swordScale) || midDist < 1.22) {
                     p1.hasHitThisSwing = true;
                     p2.hasHitThisSwing = true;
 
                     const nx = dx / bodyDist;
                     const nz = dz / bodyDist;
-                    p1.vx = -nx * 9.2;
-                    p1.vz = -nz * 9.2;
-                    p2.vx = nx * 9.2;
-                    p2.vz = nz * 9.2;
+                    p1.vx = -nx * 9.5;
+                    p1.vz = -nz * 9.5;
+                    p2.vx = nx * 9.5;
+                    p2.vz = nz * 9.5;
 
                     p1.spore = Math.min(100, p1.spore + 16);
                     p2.spore = Math.min(100, p2.spore + 16);
@@ -2155,20 +2455,21 @@
                     const cz = (p1Pts.tip.z + p2Pts.tip.z) * 0.5;
 
                     sound.playClash();
-                    gameState.hitStopTimer = 0.07;
-                    gameState.cameraShake = 0.32;
+                    gameState.hitStopTimer = 0.08;
+                    gameState.cameraShake = 0.34;
                     spawnSporeExplosion(cx, cy, cz, 0xfef08a, 24);
-                    spawnCallout('💥 เห็ดชนเห็ด!! CLASH!', cx, cy + 0.8, cz, '#fef08a', '1.45rem');
+                    spawnCallout('💥 เห็ดชนเห็ด!! CLASH!', cx, cy + 0.8, cz, '#fef08a', '1.35rem');
                     sendHostEvent('💥 เห็ดชนเห็ด!! CLASH!', '#fef08a', cx, cz, 'clash');
                     return;
                 }
             }
 
-            checkAttackHit(p1, p2, p1Pts, dt);
-            checkAttackHit(p2, p1, p2Pts, dt);
+            checkAttackHit(p1, p2, dt);
+            checkAttackHit(p2, p1, dt);
         }
 
-        function checkAttackHit(attacker, defender, pts, dt) {
+        /** เช็กการฟันโดนแบบรูปพัด (Arc + Range Detection) ตรงสายตา */
+        function checkAttackHit(attacker, defender, dt) {
             if (!isAttackActive(attacker) || defender.state === 'ko') return;
 
             if (attacker.state === 'spin') {
@@ -2178,95 +2479,157 @@
                 return;
             }
 
-            const defPos = new THREE.Vector3(defender.x, 1.05, defender.z);
-            const hitRadius = 1.08 * (0.78 + attacker.swordScale * 0.35);
-            const dTip = pts.tip.distanceTo(defPos);
-            const dMid = pts.mid.distanceTo(defPos);
+            const toDefX = defender.x - attacker.x;
+            const toDefZ = defender.z - attacker.z;
+            const dist = Math.hypot(toDefX, toDefZ);
 
-            if (dTip < hitRadius || dMid < hitRadius * 0.92) {
-                if (attacker.state === 'spin') attacker.spinTickTimer = 0.24;
-                else attacker.hasHitThisSwing = true;
+            // กำหนดระยะฟันและมุมกว้างของแต่ละท่าให้ตรงภาพจริง
+            let maxReach = 2.48 * attacker.swordScale;
+            let halfArcAngle = 1.05; // ~60 องศาซ้าย-ขวา (รวม 120 องศา)
 
-                const pushX = defender.x - attacker.x;
-                const pushZ = defender.z - attacker.z;
-                const pLen = Math.hypot(pushX, pushZ) || 1;
-                const nx = pushX / pLen;
-                const nz = pushZ / pLen;
+            if (attacker.state === 'thrust') {
+                maxReach = 2.95 * attacker.swordScale;
+                halfArcAngle = 0.45; // แทงตรงแคบกว่า แต่ยาวกว่า
+            } else if (attacker.state === 'spin' || (attacker.state === 'slash' && attacker.comboStep === 3)) {
+                maxReach = 2.65 * attacker.swordScale;
+                halfArcAngle = Math.PI; // หมุนรอบตัว 360 องศา
+            }
 
-                let baseDmg = 12;
-                let knockback = 7.5;
-                let breaksGuard = false;
-                let calloutWord = 'ฟับ!';
+            if (dist > maxReach) return;
 
-                if (attacker.state === 'thrust') {
+            const angleToDef = Math.atan2(toDefX, toDefZ);
+            let angleDiff = angleToDef - attacker.facing;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+            if (Math.abs(angleDiff) > halfArcAngle) return;
+
+            // ตรวจสอบว่าผู้รับกำลัง Dash อมตะ (I-Frame) อยู่หรือไม่
+            if (defender.invulnTimer > 0) {
+                if (!attacker.hasHitThisSwing) {
+                    attacker.hasHitThisSwing = true;
+                    spawnCallout('💨 หลบพริ้ว! DODGE!', defender.x, 2.35, defender.z, '#6ee7b7', '1.15rem');
+                    sendHostEvent('💨 หลบพริ้ว! DODGE!', '#6ee7b7', defender.x, defender.z, 'dash');
+                }
+                return;
+            }
+
+            if (attacker.state === 'spin') attacker.spinTickTimer = 0.24;
+            else attacker.hasHitThisSwing = true;
+
+            const pLen = dist || 1;
+            const nx = toDefX / pLen;
+            const nz = toDefZ / pLen;
+
+            // === ตรวจสอบจังหวะ Perfect Parry (กดตั้งรับภายใน 0.24 วินาทีก่อนโดนฟัน) ===
+            if (defender.state === 'guard' && defender.parryWindowTimer > 0 && attacker.state !== 'spin') {
+                defender.parryWindowTimer = 0;
+                defender.stamina = Math.min(defender.maxStamina, defender.stamina + 30);
+                defender.spore = Math.min(100, defender.spore + 25);
+
+                attacker.state = 'stunned';
+                attacker.stateTimer = 0;
+                attacker.stateDuration = 0.85;
+                attacker.vx = -nx * 7.5;
+                attacker.vz = -nz * 7.5;
+
+                sound.playParry();
+                gameState.hitStopTimer = 0.11;
+                gameState.cameraShake = 0.36;
+                spawnSporeExplosion((attacker.x + defender.x) * 0.5, 1.3, (attacker.z + defender.z) * 0.5, 0xfef08a, 28);
+                spawnCallout('✨ ปัดป้องสมบูรณ์! PARRY!', defender.x, 2.5, defender.z, '#fef08a', '1.35rem');
+                sendHostEvent('✨ ปัดป้องสมบูรณ์! PARRY!', '#fef08a', defender.x, defender.z, 'parry');
+                return;
+            }
+
+            // คำนวณดาเมจตามคอมโบและท่าโจมตี
+            let baseDmg = 10;
+            let knockback = 6.5;
+            let breaksGuard = false;
+            let calloutWord = 'ฟับ!';
+
+            if (attacker.state === 'slash') {
+                if (attacker.comboStep === 2) {
+                    baseDmg = 13;
+                    knockback = 7.8;
+                    calloutWord = 'คอมโบ 2!';
+                } else if (attacker.comboStep === 3) {
                     baseDmg = 18;
-                    knockback = 12.0;
-                    breaksGuard = true;
-                    calloutWord = 'ทะลวง!';
-                } else if (attacker.state === 'spin') {
-                    baseDmg = 9;
-                    knockback = 6.5;
-                    calloutWord = 'ปั่นเห็ด!';
+                    knockback = 12.2;
+                    calloutWord = '💥 ปิดคอมโบ 3!';
+                }
+            } else if (attacker.state === 'thrust') {
+                baseDmg = 19;
+                knockback = 12.5;
+                breaksGuard = true;
+                calloutWord = '⚡ ทะลวง!';
+            } else if (attacker.state === 'spin') {
+                baseDmg = 9;
+                knockback = 6.5;
+                calloutWord = '🌪️ ปั่นเห็ด!';
+            }
+
+            if (attacker.giantTimer > 0) {
+                baseDmg = Math.round(baseDmg * 1.35);
+                knockback *= 1.25;
+            }
+
+            if (defender.state === 'guard' && !breaksGuard && defender.stamina >= 12) {
+                const chipDmg = Math.max(2, Math.round(baseDmg * 0.20));
+                defender.hp = Math.max(0, defender.hp - chipDmg);
+                defender.stamina = Math.max(0, defender.stamina - 18);
+                defender.vx += nx * 5.2;
+                defender.vz += nz * 5.2;
+                defender.spore = Math.min(100, defender.spore + 14);
+                attacker.spore = Math.min(100, attacker.spore + 8);
+
+                sound.playGuard();
+                spawnSporeExplosion(defender.x, 1.2, defender.z, 0x38bdf8, 10);
+                spawnCallout(`🛡️ กันได้! -${chipDmg}`, defender.x, 2.3, defender.z, '#7dd3fc', '1.05rem');
+                sendHostEvent(`🛡️ กันได้! -${chipDmg}`, '#7dd3fc', defender.x, defender.z, 'guard');
+            } else {
+                const finalDmg = baseDmg;
+                defender.hp = Math.max(0, defender.hp - finalDmg);
+                defender.vx += nx * knockback;
+                defender.vz += nz * knockback;
+                defender.hitFlashTimer = 0.16;
+
+                if ((breaksGuard || defender.stamina < 12) && defender.state === 'guard') {
+                    defender.state = 'stunned';
+                    defender.stateTimer = 0;
+                    defender.stateDuration = 0.72;
+                    defender.stamina = 0;
+                    calloutWord = '💥 การ์ดแตก!';
+                } else if (attacker.state !== 'spin') {
+                    defender.state = 'stunned';
+                    defender.stateTimer = 0;
+                    defender.stateDuration = attacker.comboStep === 3 ? 0.36 : 0.22;
                 }
 
-                if (attacker.giantTimer > 0) {
-                    baseDmg = Math.round(baseDmg * 1.35);
-                    knockback *= 1.25;
-                }
+                const sporeGain = attacker.state === 'spin' ? 0 : (attacker.comboStep === 3 ? 24 : 16);
+                attacker.spore = Math.min(100, attacker.spore + sporeGain);
+                defender.spore = Math.min(100, defender.spore + 12);
 
-                if (defender.state === 'guard' && !breaksGuard) {
-                    const chipDmg = Math.max(2, Math.round(baseDmg * 0.22));
-                    defender.hp = Math.max(0, defender.hp - chipDmg);
-                    defender.vx += nx * 5.0;
-                    defender.vz += nz * 5.0;
-                    defender.spore = Math.min(100, defender.spore + 14);
-                    attacker.spore = Math.min(100, attacker.spore + 8);
+                sound.playHit(attacker.state === 'thrust' || attacker.comboStep === 3 || attacker.giantTimer > 0);
+                if (attacker.skin === 'water') sound.playWaterSplash();
 
-                    sound.playGuard();
-                    spawnSporeExplosion(defender.x, 1.2, defender.z, 0x38bdf8, 10);
-                    spawnCallout(`🛡️ กันได้! -${chipDmg}`, defender.x, 2.3, defender.z, '#7dd3fc', '1.1rem');
-                    sendHostEvent(`🛡️ กันได้! -${chipDmg}`, '#7dd3fc', defender.x, defender.z, 'guard');
-                } else {
-                    const finalDmg = baseDmg;
-                    defender.hp = Math.max(0, defender.hp - finalDmg);
-                    defender.vx += nx * knockback;
-                    defender.vz += nz * knockback;
-                    defender.hitFlashTimer = 0.16;
+                const skinCfg = SKIN_CONFIGS[attacker.skin] || SKIN_CONFIGS.classic;
+                const fxColor = skinCfg.hitColor || attacker.glowColor;
+                const txtColor = attacker.id === 'p1' ? '#fda4af' : '#67e8f9';
+                spawnSporeExplosion(defender.x, 1.25, defender.z, fxColor, attacker.skin === 'water' ? 24 : 18);
+                spawnCallout(`${calloutWord} -${finalDmg}`, defender.x, 2.35, defender.z, txtColor, attacker.comboStep === 3 || attacker.state === 'thrust' ? '1.3rem' : '1.15rem');
+                sendHostEvent(`${calloutWord} -${finalDmg}`, txtColor, defender.x, defender.z, 'hit');
+                gameState.hitStopTimer = (attacker.state === 'thrust' || attacker.comboStep === 3) ? 0.065 : 0.032;
+                gameState.cameraShake = (attacker.state === 'thrust' || attacker.comboStep === 3) ? 0.30 : 0.15;
+            }
 
-                    if (breaksGuard && defender.state === 'guard') {
-                        defender.state = 'stunned';
-                        defender.stateTimer = 0;
-                        defender.stateDuration = 0.65;
-                        calloutWord = '💥 การ์ดแตก!';
-                    } else if (attacker.state !== 'spin') {
-                        defender.state = 'stunned';
-                        defender.stateTimer = 0;
-                        defender.stateDuration = 0.24;
-                    }
-
-                    attacker.spore = Math.min(100, attacker.spore + (attacker.state === 'spin' ? 0 : 18));
-                    defender.spore = Math.min(100, defender.spore + 12);
-
-                    sound.playHit(attacker.state === 'thrust' || attacker.giantTimer > 0);
-                    if (attacker.skin === 'water') sound.playWaterSplash();
-
-                    const skinCfg = SKIN_CONFIGS[attacker.skin] || SKIN_CONFIGS.classic;
-                    const fxColor = skinCfg.hitColor || attacker.glowColor;
-                    const txtColor = attacker.id === 'p1' ? '#fda4af' : '#67e8f9';
-                    spawnSporeExplosion(defender.x, 1.25, defender.z, fxColor, attacker.skin === 'water' ? 24 : 18);
-                    spawnCallout(`${calloutWord} -${finalDmg}`, defender.x, 2.35, defender.z, txtColor, attacker.state === 'thrust' ? '1.4rem' : '1.2rem');
-                    sendHostEvent(`${calloutWord} -${finalDmg}`, txtColor, defender.x, defender.z, 'hit');
-                    gameState.hitStopTimer = attacker.state === 'thrust' ? 0.06 : 0.035;
-                    gameState.cameraShake = attacker.state === 'thrust' ? 0.30 : 0.16;
-                }
-
-                if (defender.hp <= 0) {
-                    defender.state = 'ko';
-                    endRound(attacker);
-                }
+            if (defender.hp <= 0) {
+                defender.state = 'ko';
+                endRound(attacker);
             }
         }
 
+        /** AI ฉลาดขึ้น: รู้จักต่อคอมโบ แดชหลบท่าแทง และปัดป้อง */
         function computeAI(ai, target, dt) {
             let mx = 0;
             let mz = 0;
@@ -2275,16 +2638,16 @@
             }
 
             const diffParams = {
-                easy:   { reaction: 0.48, aggro: 0.40, guardRate: 0.20 },
-                normal: { reaction: 0.28, aggro: 0.65, guardRate: 0.45 },
-                hard:   { reaction: 0.15, aggro: 0.86, guardRate: 0.68 }
-            }[gameState.difficulty] || { reaction: 0.28, aggro: 0.65, guardRate: 0.45 };
+                easy:   { reaction: 0.48, aggro: 0.42, guardRate: 0.22, dashRate: 0.15 },
+                normal: { reaction: 0.26, aggro: 0.68, guardRate: 0.48, dashRate: 0.42 },
+                hard:   { reaction: 0.14, aggro: 0.88, guardRate: 0.72, dashRate: 0.75 }
+            }[gameState.difficulty] || { reaction: 0.26, aggro: 0.68, guardRate: 0.48, dashRate: 0.42 };
 
             ai.aiThinkTimer -= dt;
 
             if (goldenMushroom) {
                 const distItem = Math.hypot(goldenMushroom.x - ai.x, goldenMushroom.z - ai.z);
-                if (distItem < 6.2) {
+                if (distItem < 6.4) {
                     ai.setGuard(false);
                     return { mx: goldenMushroom.x - ai.x, mz: goldenMushroom.z - ai.z };
                 }
@@ -2299,17 +2662,29 @@
                 ai.aiThinkTimer = diffParams.reaction * (0.75 + Math.random() * 0.5);
                 if (Math.random() < 0.35) ai.aiStrafeDir *= -1;
 
+                // ถ้าเห็นผู้เล่นกำลังพุ่งแทงเข้ามา ลองแดชหลบออกข้าง!
+                if (target.state === 'thrust' && dist < 4.5 && Math.random() < diffParams.dashRate) {
+                    ai.setGuard(false);
+                    const sideX = -dz / dist * ai.aiStrafeDir;
+                    const sideZ = dx / dist * ai.aiStrafeDir;
+                    ai.triggerDash(sideX, sideZ);
+                    return { mx: sideX, mz: sideZ };
+                }
+
                 if (ai.spore >= 100 && dist < 4.2 && Math.random() < diffParams.aggro) {
                     ai.setGuard(false);
                     ai.triggerUltimate();
                     return { mx: dx, mz: dz };
                 }
 
-                ai.aiDesiredGuard = target.state === 'slash' && dist < 3.4 && Math.random() < diffParams.guardRate;
+                ai.aiDesiredGuard = target.state === 'slash' && dist < 3.2 && Math.random() < diffParams.guardRate;
 
-                if (!ai.aiDesiredGuard && dist < idealRange + 0.85 && Math.random() < diffParams.aggro) {
-                    if (target.state === 'guard' || Math.random() < 0.32) ai.triggerThrust();
-                    else ai.triggerSlash();
+                if (!ai.aiDesiredGuard && dist < idealRange + 0.75 && Math.random() < diffParams.aggro) {
+                    if (target.state === 'guard' && ai.stamina >= 24 && Math.random() < 0.45) {
+                        ai.triggerThrust();
+                    } else {
+                        ai.triggerSlash();
+                    }
                 }
             }
 
@@ -2327,67 +2702,59 @@
             return { mx, mz };
         }
 
-        // ===================== 7. ระบบกล้อง 3 แบบ + แปลงทิศเดินตามมุมกล้อง =====================
+        // ===================== 7. Smart Camera (คำนวณระยะตามสัดส่วนจอ ไม่ตกขอบ) =====================
         function updateCamera(dt) {
             const mode = CAMERA_MODES[camControl.modeIndex].id;
-            const myFighter = getControlledFighter();
-            const oppFighter = myFighter === p1 ? p2 : p1;
+            const aspect = camera.aspect || 1;
+            // ถ้าเป็นหน้าจอแนวตั้งแคบ (aspect < 1) ให้เพิ่มระยะถอยกล้องอัตโนมัติไม่ให้ตัวละครตกขอบ
+            const portraitZoomFactor = aspect < 1 ? (1 / Math.max(0.52, aspect)) * 0.82 : 1.0;
 
             const shakeX = gameState.cameraShake > 0 ? (Math.random() - 0.5) * gameState.cameraShake : 0;
             const shakeY = gameState.cameraShake > 0 ? (Math.random() - 0.5) * gameState.cameraShake : 0;
             if (gameState.cameraShake > 0) gameState.cameraShake = Math.max(0, gameState.cameraShake - dt * 2.0);
 
+            const midX = (p1.x + p2.x) * 0.5;
+            const midZ = (p1.z + p2.z) * 0.5;
+            const sep = Math.hypot(p1.x - p2.x, p1.z - p2.z);
+
             const targetPos = new THREE.Vector3();
             const lookTarget = new THREE.Vector3();
 
-            // ในโหมด 2P จอเดียว ใช้มุมมองดวลข้างหรือมุมสูงจะยุติธรรมกับทั้งสองคน
-            const effectiveMode = (gameState.mode === '2p' && mode === 'chase') ? 'side' : mode;
-
-            if (effectiveMode === 'chase') {
-                const angleToOpp = Math.atan2(oppFighter.x - myFighter.x, oppFighter.z - myFighter.z);
-                const camYaw = angleToOpp + Math.PI + camControl.yawOffset;
-                const dist = Math.max(5.2, Math.min(11, 6.8 + camControl.distanceOffset));
-                const height = Math.max(2.2, Math.min(6.0, 3.6 + camControl.pitchOffset * 4));
-
-                targetPos.set(
-                    myFighter.x + Math.sin(camYaw) * dist + shakeX,
-                    height + shakeY,
-                    myFighter.z + Math.cos(camYaw) * dist
-                );
-                lookTarget.set(
-                    myFighter.x * 0.35 + oppFighter.x * 0.65,
-                    1.25,
-                    myFighter.z * 0.35 + oppFighter.z * 0.65
-                );
-                camControl.currentYaw = angleToOpp + Math.PI;
-            } else if (effectiveMode === 'top') {
-                const midX = (p1.x + p2.x) * 0.5;
-                const midZ = (p1.z + p2.z) * 0.5;
-                const sep = Math.hypot(p1.x - p2.x, p1.z - p2.z);
-                const h = Math.max(12.5, 11.5 + sep * 0.6 + camControl.distanceOffset);
+            if (mode === 'top') {
+                // มุมสูง 65° กะระยะวงฟันง่ายสุด
+                const h = Math.max(13.0, (11.5 + sep * 0.68) * portraitZoomFactor + camControl.distanceOffset);
                 const yaw = camControl.yawOffset;
-
-                targetPos.set(midX + Math.sin(yaw) * 6.5 + shakeX, h + shakeY, midZ + Math.cos(yaw) * 6.5);
-                lookTarget.set(midX, 0.8, midZ);
+                targetPos.set(midX + Math.sin(yaw) * 5.2 + shakeX, h + shakeY, midZ + Math.cos(yaw) * 5.2);
+                lookTarget.set(midX, 0.7, midZ + 0.35);
                 camControl.currentYaw = yaw;
-            } else {
-                const midX = (p1.x + p2.x) * 0.5;
-                const midZ = (p1.z + p2.z) * 0.5;
-                const sep = Math.hypot(p1.x - p2.x, p1.z - p2.z);
-                const dist = Math.max(9.2, Math.min(18, 10.6 + sep * 0.58 + camControl.distanceOffset));
-                const pitch = Math.max(0.24, Math.min(1.05, 0.52 + camControl.pitchOffset));
+            } else if (mode === 'side') {
+                // มุมดวลข้าง 32°
+                const dist = Math.max(10.0, (10.2 + sep * 0.65) * portraitZoomFactor + camControl.distanceOffset);
+                const pitch = 0.54 + camControl.pitchOffset;
                 const yaw = camControl.yawOffset;
-
                 targetPos.set(
                     midX + Math.sin(yaw) * Math.cos(pitch) * dist + shakeX,
-                    Math.sin(pitch) * dist + 1.5 + shakeY,
+                    Math.sin(pitch) * dist + 1.4 + shakeY,
                     midZ + Math.cos(yaw) * Math.cos(pitch) * dist
                 );
-                lookTarget.set(midX, 1.15, midZ);
+                lookTarget.set(midX, 1.0, midZ + 0.3);
+                camControl.currentYaw = yaw;
+            } else {
+                // ค่าเริ่มต้น: มุมเฉียงแอ็กชัน (Isometric 42°) เห็นระยะตื้น-ลึกชัดเต็มตา
+                const dist = Math.max(10.5, (10.4 + sep * 0.66) * portraitZoomFactor + camControl.distanceOffset);
+                const pitch = 0.74; // ~42 องศา
+                const yaw = camControl.yawOffset;
+                targetPos.set(
+                    midX + Math.sin(yaw) * Math.cos(pitch) * dist + shakeX,
+                    Math.sin(pitch) * dist + 1.2 + shakeY,
+                    midZ + Math.cos(yaw) * Math.cos(pitch) * dist
+                );
+                // เลื่อนจุดโฟกัสลงเล็กน้อยเพื่อเผื่อพื้นที่ปุ่มกดด้านล่างจอ
+                lookTarget.set(midX, 0.85, midZ + 0.45);
                 camControl.currentYaw = yaw;
             }
 
-            camera.position.lerp(targetPos, Math.min(1, dt * 7.5));
+            camera.position.lerp(targetPos, Math.min(1, dt * 8.0));
             camera.lookAt(lookTarget);
         }
 
@@ -2410,6 +2777,9 @@
             document.getElementById('p1-hp-text').textContent = Math.ceil(p1.hp);
             document.getElementById('p2-hp-text').textContent = Math.ceil(p2.hp);
 
+            document.getElementById('p1-stam-bar').style.width = `${(p1.stamina / p1.maxStamina) * 100}%`;
+            document.getElementById('p2-stam-bar').style.width = `${(p2.stamina / p2.maxStamina) * 100}%`;
+
             document.getElementById('p1-spore-bar').style.width = `${p1.spore}%`;
             document.getElementById('p2-spore-bar').style.width = `${p2.spore}%`;
 
@@ -2417,11 +2787,14 @@
             document.getElementById('p2-wins').textContent = '🏆'.repeat(gameState.p2Wins) + '⚪'.repeat(Math.max(0, 2 - gameState.p2Wins));
             document.getElementById('round-num').textContent = gameState.round;
 
-            // อัปเดตปุ่มอัลติทั้งโหมดเดี่ยวและโหมด 2P จอเดียว
+            // อัปเดตปุ่มอัลติ + ป้ายจังหวะคอมโบ
             const myF = getControlledFighter();
             const ultBtn = document.getElementById('touch-ult');
             document.getElementById('ult-pct').textContent = `${Math.floor(myF.spore)}%`;
             ultBtn.classList.toggle('ult-ready', myF.spore >= 100);
+
+            const nextCombo = (myF.comboResetTimer > 0 && myF.comboStep < 3) ? myF.comboStep + 1 : 1;
+            document.getElementById('combo-badge-single').textContent = `คอมโบ ${nextCombo}`;
 
             const p1UltBtn = document.getElementById('p1-btn-ult');
             document.getElementById('p1-ult-pct').textContent = `${Math.floor(p1.spore)}%`;
@@ -2432,11 +2805,9 @@
             p2UltBtn.classList.toggle('ult-ready', p2.spore >= 100);
         }
 
-        /** สลับเลย์เอาต์แผงปุ่มล่างให้เหมาะกับโหมด 1P/ออนไลน์ หรือ 2P แท็บเล็ตจอเดียว */
         function updateControlsLayout() {
             const singleBar = document.getElementById('controls-single');
             const dualBar = document.getElementById('controls-dual');
-            const quick2pBtn = document.getElementById('btn-quick-2p');
             const btn1p = document.getElementById('btn-mode-1p');
             const btn2p = document.getElementById('btn-mode-2p');
             const diffSel = document.getElementById('select-difficulty');
@@ -2445,19 +2816,17 @@
             if (gameState.mode === '2p') {
                 singleBar.classList.add('hidden');
                 dualBar.classList.remove('hidden');
-                quick2pBtn.classList.add('active-mode');
                 btn2p.classList.add('active-mode');
                 btn1p.classList.remove('active-mode');
                 diffSel.disabled = true;
                 diffSel.style.opacity = '0.45';
                 document.getElementById('p1-label').textContent = '🔴 P1 (ซ้าย)';
                 document.getElementById('p2-label').textContent = 'P2 (ขวา) 🔵';
-                youInd.textContent = '👥 โหมด 2P แท็บเล็ตจอเดียว: 🔴 ซ้าย vs 🔵 ขวา';
-                youInd.className = 'bg-slate-950/75 backdrop-blur-sm border border-cyan-400/50 text-cyan-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full';
+                youInd.textContent = '👥 2P จอเดียว: 🔴 ซ้าย vs 🔵 ขวา';
+                youInd.className = 'text-[9px] sm:text-[10px] font-bold text-cyan-200 leading-none truncate max-w-[160px] sm:max-w-[240px]';
             } else {
                 dualBar.classList.add('hidden');
                 singleBar.classList.remove('hidden');
-                quick2pBtn.classList.remove('active-mode');
                 if (gameState.mode === '1p') {
                     btn1p.classList.add('active-mode');
                     btn2p.classList.remove('active-mode');
@@ -2465,19 +2834,10 @@
                     diffSel.style.opacity = '1';
                     document.getElementById('p1-label').textContent = '🔴 P1 เห็ดแดง';
                     document.getElementById('p2-label').textContent = 'บอทเห็ดฟ้า 🔵';
-                    youInd.textContent = 'โหมด 1P: 🔴 คุณ vs 🤖 บอท';
-                    youInd.className = 'bg-slate-950/70 backdrop-blur-sm border border-rose-400/40 text-rose-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full';
+                    youInd.textContent = '1P: 🔴 คุณ vs 🤖 บอท';
+                    youInd.className = 'text-[9px] sm:text-[10px] font-bold text-rose-200 leading-none truncate max-w-[160px] sm:max-w-[240px]';
                 }
             }
-            // ปรับขนาดแคนวาส 3D ให้พอดีทันทีหลังเปลี่ยนแผงปุ่ม
-            setTimeout(() => {
-                const wrapper = document.getElementById('game-canvas-wrapper');
-                if (wrapper && renderer && camera) {
-                    camera.aspect = wrapper.clientWidth / wrapper.clientHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
-                }
-            }, 30);
         }
 
         // ===================== 8. ระบบคัทซีน 3D และการจบยก =====================
@@ -2657,7 +3017,7 @@
             gameState.phase = 'playing';
 
             document.getElementById('banner-overlay').classList.add('opacity-0', 'pointer-events-none');
-            spawnCallout(`⚔️ ยกที่ ${gameState.round} — เริ่มฟันได้!`, 0, 2.5, 0, '#fde047', '1.55rem');
+            spawnCallout(`⚔️ ยกที่ ${gameState.round} — เริ่มฟันได้!`, 0, 2.5, 0, '#fde047', '1.45rem');
             sound.playClash();
             updateHUD();
 
@@ -2711,7 +3071,7 @@
             else gameState.p2Wins++;
 
             sound.playVictory();
-            spawnCallout('💥 K.O.!!', winner.id === 'p1' ? p2.x : p1.x, 2.5, winner.id === 'p1' ? p2.z : p1.z, '#fde047', '2rem');
+            spawnCallout('💥 K.O.!!', winner.id === 'p1' ? p2.x : p1.x, 2.5, winner.id === 'p1' ? p2.z : p1.z, '#fde047', '1.85rem');
             updateHUD();
 
             const isMatchOver = gameState.p1Wins >= 2 || gameState.p2Wins >= 2;
@@ -2738,7 +3098,7 @@
             }, 900);
         }
 
-        // ===================== 9. ระบบออนไลน์ข้ามเครื่องด้วย PeerJS (WebRTC P2P ไม่ต้องตั้งค่าเซิร์ฟเวอร์) =====================
+        // ===================== 9. ระบบออนไลน์ข้ามเครื่องด้วย PeerJS (WebRTC P2P) =====================
         function setOnlineStatus(msg, colorClass = 'text-sky-300') {
             const el = document.getElementById('online-conn-status');
             if (el) {
@@ -2791,7 +3151,7 @@
                 peer.on('error', (err) => {
                     console.warn('Peer host error:', err);
                     setOnlineStatus('⚠️ สร้างห้องไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'text-rose-300');
-                    showToast('เชื่อมต่อออนไลน์ไม่สำเร็จ (อาจถูกบล็อกเครือข่าย) ลองใช้โหมด 2P จอเดียวได้เลย!', 'error');
+                    showToast('เชื่อมต่อออนไลน์ไม่สำเร็จ ลองใช้โหมด 2P จอเดียวได้เลย!', 'error');
                 });
             } catch (e) {
                 showToast('สร้างห้องไม่สำเร็จ', 'error');
@@ -2843,7 +3203,7 @@
 
                 const guestEl = document.getElementById('room-guest-status');
                 guestEl.textContent = '🟢 เข้าห้องแล้ว พร้อมดวล!';
-                guestEl.className = 'text-[11px] text-emerald-300 font-bold mt-1';
+                guestEl.className = 'text-[11px] text-emerald-300 font-bold mt-0.5';
 
                 const startBtn = document.getElementById('btn-start-online-match');
                 if (netState.role === 'host') {
@@ -2854,7 +3214,6 @@
                     startBtn.textContent = '⏳ รอเจ้าห้องกดเริ่ม...';
                 }
 
-                // ส่งสกินของตัวเองให้อีกฝั่งเห็นทันที
                 sendNetMessage({
                     type: 'skin',
                     player: netState.role === 'host' ? 'p1' : 'p2',
@@ -2894,9 +3253,16 @@
                 }
             } else if (msg.type === 'action') {
                 const remoteFighter = netState.role === 'host' ? p2 : p1;
-                if (msg.action === 'slash') remoteFighter.triggerSlash(true);
-                else if (msg.action === 'thrust') remoteFighter.triggerThrust(true);
-                else if (msg.action === 'ult') remoteFighter.triggerUltimate(true);
+                if (msg.action === 'slash') {
+                    if (msg.combo) remoteFighter.comboStep = msg.combo - 1;
+                    remoteFighter.triggerSlash(true);
+                } else if (msg.action === 'thrust') {
+                    remoteFighter.triggerThrust(true);
+                } else if (msg.action === 'dash') {
+                    remoteFighter.triggerDash(msg.dx || 0, msg.dz || 0, true);
+                } else if (msg.action === 'ult') {
+                    remoteFighter.triggerUltimate(true);
+                }
             } else if (msg.type === 'guest_pose' && netState.role === 'host') {
                 netState.remoteTarget.x = msg.x;
                 netState.remoteTarget.z = msg.z;
@@ -2910,6 +3276,8 @@
 
                 p1.hp = msg.p1Hp;
                 p2.hp = msg.p2Hp;
+                p1.stamina = msg.p1Stam ?? p1.stamina;
+                p2.stamina = msg.p2Stam ?? p2.stamina;
                 p1.spore = msg.p1Spore;
                 p2.spore = msg.p2Spore;
                 p1.giantTimer = msg.p1Giant;
@@ -2927,10 +3295,11 @@
                     goldenMushroom = null;
                 }
             } else if (msg.type === 'event' && netState.role === 'guest') {
-                spawnCallout(msg.text, msg.x, 2.35, msg.z, msg.color, '1.3rem');
+                spawnCallout(msg.text, msg.x, 2.35, msg.z, msg.color, '1.2rem');
                 spawnSporeExplosion(msg.x, 1.2, msg.z, 0xfef08a, 14);
                 if (msg.soundType === 'hit') sound.playHit(false);
                 else if (msg.soundType === 'clash') sound.playClash();
+                else if (msg.soundType === 'parry') sound.playParry();
                 else if (msg.soundType === 'guard') sound.playGuard();
                 else if (msg.soundType === 'powerup') sound.playPowerup();
             } else if (msg.type === 'round_start' && netState.role === 'guest') {
@@ -2944,7 +3313,7 @@
                 gameState.phase = 'playing';
                 document.getElementById('banner-overlay').classList.add('opacity-0', 'pointer-events-none');
                 sound.playClash();
-                spawnCallout(`⚔️ ยกที่ ${gameState.round} — เริ่มฟันได้!`, 0, 2.5, 0, '#fde047', '1.55rem');
+                spawnCallout(`⚔️ ยกที่ ${gameState.round} — เริ่มฟันได้!`, 0, 2.5, 0, '#fde047', '1.45rem');
                 updateHUD();
             } else if (msg.type === 'round_end' && netState.role === 'guest') {
                 gameState.round = msg.round;
@@ -2962,7 +3331,7 @@
         function syncP2PFrame() {
             if (gameState.mode !== 'online' || !netState.connected) return;
             const now = performance.now();
-            if (now - netState.lastSyncTime < 45) return; // ส่งลื่นๆ ~22 ครั้ง/วินาที
+            if (now - netState.lastSyncTime < 45) return;
             netState.lastSyncTime = now;
 
             if (netState.role === 'host') {
@@ -2974,6 +3343,8 @@
                     p1s: p1.state,
                     p1Hp: Math.round(p1.hp),
                     p2Hp: Math.round(p2.hp),
+                    p1Stam: Math.round(p1.stamina),
+                    p2Stam: Math.round(p2.stamina),
                     p1Spore: Math.round(p1.spore),
                     p2Spore: Math.round(p2.spore),
                     p1Giant: Number(p1.giantTimer.toFixed(1)),
@@ -3001,7 +3372,7 @@
             updateControlsLayout();
 
             const statusPill = document.getElementById('online-status-pill');
-            statusPill.textContent = `🌐 ห้อง ${code} (${role === 'host' ? 'P1' : 'P2'})`;
+            statusPill.textContent = `🌐 ${code}`;
             statusPill.classList.remove('hidden');
 
             document.getElementById('online-lobby-view').classList.add('hidden');
@@ -3013,13 +3384,13 @@
 
             const youInd = document.getElementById('you-indicator');
             if (role === 'host') {
-                youInd.textContent = `🌐 ออนไลน์ห้อง ${code}: คุณคือ 🔴 P1`;
-                youInd.className = 'bg-slate-950/75 backdrop-blur-sm border border-rose-400/50 text-rose-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full';
+                youInd.textContent = `🌐 ห้อง ${code}: คุณคือ 🔴 P1`;
+                youInd.className = 'text-[9px] sm:text-[10px] font-bold text-rose-200 leading-none truncate max-w-[160px] sm:max-w-[240px]';
                 document.getElementById('p1-label').textContent = '🔴 คุณ (P1)';
                 document.getElementById('p2-label').textContent = 'เพื่อน (P2) 🔵';
             } else {
-                youInd.textContent = `🌐 ออนไลน์ห้อง ${code}: คุณคือ 🔵 P2`;
-                youInd.className = 'bg-slate-950/75 backdrop-blur-sm border border-cyan-400/50 text-cyan-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full';
+                youInd.textContent = `🌐 ห้อง ${code}: คุณคือ 🔵 P2`;
+                youInd.className = 'text-[9px] sm:text-[10px] font-bold text-cyan-200 leading-none truncate max-w-[160px] sm:max-w-[240px]';
                 document.getElementById('p1-label').textContent = '🔴 เพื่อน (P1)';
                 document.getElementById('p2-label').textContent = 'คุณ (P2) 🔵';
             }
@@ -3092,7 +3463,6 @@
                     }
                     syncP2PFrame();
                 } else if (gameState.mode === '2p') {
-                    // โหมด 2P แท็บเล็ตจอเดียว (Multi-Touch 2 จอย + คีย์บอร์ดเสริม)
                     let p1InX = joyP1.x;
                     let p1InY = joyP1.y;
                     if (keys['KeyA']) p1InX -= 1;
@@ -3145,7 +3515,7 @@
             renderer.render(scene, camera);
         }
 
-        // ===================== 11. ผูกจอยอนาล็อก Multi-Touch ปุ่ม และโมดอล =====================
+        // ===================== 11. ผูกจอยลอย (Floating Joystick) ปุ่ม Action Arc และโมดอล =====================
         function syncSkinButtonsUI(playerKey, skinId) {
             document.querySelectorAll(`.skin-btn[data-player="${playerKey}"]`).forEach((b) => {
                 b.classList.remove('selected-p1', 'selected-p2');
@@ -3155,20 +3525,19 @@
             });
         }
 
-        /** ตัวช่วยสร้างจอยอนาล็อก 360° ที่รองรับ Multi-Touch แยก Pointer ID อิสระ */
-        function bindAnalogJoystick(zoneId, knobId, outputObj) {
+        /** จอยลอย 360° (Floating Joystick): แตะจุดไหนในพื้นที่ซ้ายล่าง วงจอยจะย้ายมาตามนิ้วทันที */
+        function bindFloatingJoystick(zoneId, ringId, knobId, outputObj) {
             const zone = document.getElementById(zoneId);
+            const ring = document.getElementById(ringId);
             const knob = document.getElementById(knobId);
             let activeId = null;
+            let originX = 0;
+            let originY = 0;
 
             const updateStick = (clientX, clientY) => {
-                const rect = zone.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const maxR = rect.width * 0.38;
-
-                let dx = clientX - cx;
-                let dy = clientY - cy;
+                const maxR = (ring.offsetWidth || 100) * 0.42;
+                let dx = clientX - originX;
+                let dy = clientY - originY;
                 const dist = Math.hypot(dx, dy);
                 if (dist > maxR) {
                     dx = (dx / dist) * maxR;
@@ -3184,6 +3553,8 @@
                 outputObj.x = 0;
                 outputObj.y = 0;
                 knob.style.transform = 'translate(0px, 0px)';
+                ring.classList.remove('opacity-100');
+                ring.classList.add('opacity-75');
             };
 
             zone.addEventListener('pointerdown', (e) => {
@@ -3192,7 +3563,15 @@
                 sound.init();
                 activeId = e.pointerId;
                 zone.setPointerCapture(e.pointerId);
-                updateStick(e.clientX, e.clientY);
+
+                const rect = zone.getBoundingClientRect();
+                originX = e.clientX;
+                originY = e.clientY;
+                ring.style.left = `${e.clientX - rect.left}px`;
+                ring.style.top = `${e.clientY - rect.top}px`;
+                ring.classList.remove('opacity-75');
+                ring.classList.add('opacity-100');
+                knob.style.transform = 'translate(0px, 0px)';
             });
 
             zone.addEventListener('pointermove', (e) => {
@@ -3240,16 +3619,26 @@
             el.addEventListener('pointercancel', clear);
         }
 
+        function triggerDashWithJoy(fighter, joyObj) {
+            let inX = joyObj.x;
+            let inY = joyObj.y;
+            if (fighter === p1 || fighter === getControlledFighter()) {
+                if (keys['KeyA']) inX -= 1;
+                if (keys['KeyD']) inX += 1;
+                if (keys['KeyW']) inY -= 1;
+                if (keys['KeyS']) inY += 1;
+            }
+            const worldDir = screenInputToWorldMove(inX, inY);
+            fighter.triggerDash(worldDir.x, worldDir.z);
+        }
+
         function switchTo2PTabletMode() {
             if (gameState.mode === 'online') cleanupP2P(false);
             gameState.mode = '2p';
-            // ปรับมุมกล้องเป็น "ดวลข้าง" เพื่อให้นักสู้ทั้ง 2 คนเห็นชัดเท่ากัน
-            camControl.modeIndex = 0;
             camControl.yawOffset = 0;
             camControl.pitchOffset = 0;
-            document.getElementById('btn-cycle-cam').textContent = CAMERA_MODES[0].label;
             updateControlsLayout();
-            showToast('👥 โหมด 2P แท็บเล็ตจอเดียว! ซ้าย 🔴 P1 • ขวา 🔵 P2', 'success');
+            showToast('👥 โหมด 2P จอเดียว! ซ้าย 🔴 P1 • ขวา 🔵 P2', 'success');
             startMatch();
         }
 
@@ -3261,27 +3650,30 @@
         }
 
         function bindControls() {
-            // ผูกจอยทั้ง 3 ตัว (1P/Online, P1 ฝั่งซ้าย, P2 ฝั่งขวา)
-            bindAnalogJoystick('joystick-single-zone', 'joystick-single-knob', joySingle);
-            bindAnalogJoystick('joystick-p1-zone', 'joystick-p1-knob', joyP1);
-            bindAnalogJoystick('joystick-p2-zone', 'joystick-p2-knob', joyP2);
+            // ผูกจอยลอยทั้ง 3 ตัว
+            bindFloatingJoystick('joystick-single-zone', 'joystick-single-ring', 'joystick-single-knob', joySingle);
+            bindFloatingJoystick('joystick-p1-zone', 'joystick-p1-ring', 'joystick-p1-knob', joyP1);
+            bindFloatingJoystick('joystick-p2-zone', 'joystick-p2-ring', 'joystick-p2-knob', joyP2);
 
             // ปุ่มโหมด 1P / Online
             bindActionTap('touch-slash', () => getControlledFighter().triggerSlash());
             bindActionTap('touch-thrust', () => getControlledFighter().triggerThrust());
             bindActionTap('touch-ult', () => getControlledFighter().triggerUltimate());
+            bindActionTap('touch-dash', () => triggerDashWithJoy(getControlledFighter(), joySingle));
             bindGuardHold('touch-guard', 'single');
 
             // ปุ่มโหมด 2P แท็บเล็ตจอเดียว (P1 ซ้าย)
             bindActionTap('p1-btn-slash', () => p1.triggerSlash());
             bindActionTap('p1-btn-thrust', () => p1.triggerThrust());
             bindActionTap('p1-btn-ult', () => p1.triggerUltimate());
+            bindActionTap('p1-btn-dash', () => triggerDashWithJoy(p1, joyP1));
             bindGuardHold('p1-btn-guard', 'p1');
 
             // ปุ่มโหมด 2P แท็บเล็ตจอเดียว (P2 ขวา)
             bindActionTap('p2-btn-slash', () => p2.triggerSlash());
             bindActionTap('p2-btn-thrust', () => p2.triggerThrust());
             bindActionTap('p2-btn-ult', () => p2.triggerUltimate());
+            bindActionTap('p2-btn-dash', () => triggerDashWithJoy(p2, joyP2));
             bindGuardHold('p2-btn-guard', 'p2');
 
             // คีย์บอร์ด
@@ -3302,16 +3694,26 @@
                 if (e.code === 'KeyF' || e.code === 'Space') myF.triggerSlash();
                 if (e.code === 'KeyG' || e.code === 'KeyE') myF.triggerThrust();
                 if (e.code === 'KeyQ' || e.code === 'KeyR') myF.triggerUltimate();
+                if (e.code === 'KeyC' || e.code === 'AltLeft') triggerDashWithJoy(myF, joySingle);
 
                 if (gameState.mode === '2p') {
                     if (e.code === 'KeyK' || e.code === 'Numpad1') p2.triggerSlash();
                     if (e.code === 'KeyL' || e.code === 'Numpad2') p2.triggerThrust();
                     if (e.code === 'KeyO' || e.code === 'Numpad0') p2.triggerUltimate();
+                    if (e.code === 'KeyM' || e.code === 'Slash') {
+                        let inX = joyP2.x, inY = joyP2.y;
+                        if (keys['ArrowLeft']) inX -= 1;
+                        if (keys['ArrowRight']) inX += 1;
+                        if (keys['ArrowUp']) inY -= 1;
+                        if (keys['ArrowDown']) inY += 1;
+                        const w = screenInputToWorldMove(inX, inY);
+                        p2.triggerDash(w.x, w.z);
+                    }
                 }
             });
             window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-            // ปุ่มสลับมุมกล้อง 3 แบบ
+            // ปุ่มสลับมุมกล้อง 3 แบบ (ไม่ให้เผลอลากจอแล้วกล้องหมุนมั่ว)
             const btnCam = document.getElementById('btn-cycle-cam');
             btnCam.addEventListener('click', () => {
                 camControl.modeIndex = (camControl.modeIndex + 1) % CAMERA_MODES.length;
@@ -3323,38 +3725,32 @@
                 showToast(`${m.label} — ${m.desc}`, 'info');
             });
 
-            // ปุ่มลัด 2P จอเดียว บนแถบหัวและบนแบนเนอร์
-            document.getElementById('btn-quick-2p').addEventListener('click', () => {
-                if (gameState.mode === '2p') {
-                    switchTo1PMode();
-                    showToast('🤖 กลับสู่โหมด 1P สู้บอท', 'info');
-                } else {
-                    switchTo2PTabletMode();
-                }
-            });
-            document.getElementById('btn-banner-2p').addEventListener('click', switchTo2PTabletMode);
-
-            // โมดอลสกิน & ตั้งค่า
-            const modalSettings = document.getElementById('modal-settings');
-            document.getElementById('btn-open-settings').addEventListener('click', () => modalSettings.classList.remove('hidden'));
-            document.getElementById('btn-close-settings').addEventListener('click', () => modalSettings.classList.add('hidden'));
+            // โมดอลเมนูหลัก
+            const modalMenu = document.getElementById('modal-menu');
+            document.getElementById('btn-open-menu').addEventListener('click', () => modalMenu.classList.remove('hidden'));
+            document.getElementById('btn-close-menu').addEventListener('click', () => modalMenu.classList.add('hidden'));
 
             document.getElementById('btn-mode-1p').addEventListener('click', () => {
-                modalSettings.classList.add('hidden');
+                modalMenu.classList.add('hidden');
                 switchTo1PMode();
             });
             document.getElementById('btn-mode-2p').addEventListener('click', () => {
-                modalSettings.classList.add('hidden');
+                modalMenu.classList.add('hidden');
                 switchTo2PTabletMode();
             });
+            document.getElementById('btn-banner-2p').addEventListener('click', switchTo2PTabletMode);
+
             document.getElementById('select-difficulty').addEventListener('change', (e) => {
                 gameState.difficulty = e.target.value;
             });
 
             // โมดอลออนไลน์ P2P
             const modalOnline = document.getElementById('modal-online');
-            const openOnline = () => modalOnline.classList.remove('hidden');
-            document.getElementById('btn-open-online').addEventListener('click', openOnline);
+            const openOnline = () => {
+                modalMenu.classList.add('hidden');
+                modalOnline.classList.remove('hidden');
+            };
+            document.getElementById('btn-menu-online').addEventListener('click', openOnline);
             document.getElementById('btn-banner-online').addEventListener('click', openOnline);
             document.getElementById('btn-close-online').addEventListener('click', () => modalOnline.classList.add('hidden'));
 
@@ -3384,7 +3780,7 @@
                 else startMatch();
             });
             document.getElementById('btn-restart').addEventListener('click', () => {
-                modalSettings.classList.add('hidden');
+                modalMenu.classList.add('hidden');
                 if (gameState.mode === 'online' && netState.role === 'guest') {
                     showToast('รอเจ้าห้องกดเริ่มแมตช์ใหม่', 'info');
                     return;
@@ -3397,7 +3793,7 @@
             btnSound.addEventListener('click', () => {
                 sound.init();
                 sound.enabled = !sound.enabled;
-                btnSound.textContent = sound.enabled ? '🔊' : '🔇';
+                btnSound.textContent = sound.enabled ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด';
             });
             const btnCutsceneToggle = document.getElementById('btn-cutscene-toggle');
             btnCutsceneToggle.addEventListener('click', () => {
@@ -3422,7 +3818,7 @@
                         gameState.p1Skin = skinId;
                         p1.applySkin(skinId);
                         spawnSporeExplosion(p1.x, 1.2, p1.z, skinCfg.hitColor || p1.glowColor, 16);
-                        spawnCallout(`${skinCfg.emoji} ${skinCfg.name}!`, p1.x, 2.35, p1.z, '#fde047', '1.2rem');
+                        spawnCallout(`${skinCfg.emoji} ${skinCfg.name}!`, p1.x, 2.35, p1.z, '#fde047', '1.15rem');
                         if (gameState.mode === 'online' && netState.role === 'host') {
                             sendNetMessage({ type: 'skin', player: 'p1', skin: skinId });
                         }
@@ -3430,7 +3826,7 @@
                         gameState.p2Skin = skinId;
                         p2.applySkin(skinId);
                         spawnSporeExplosion(p2.x, 1.2, p2.z, skinCfg.hitColor || p2.glowColor, 16);
-                        spawnCallout(`${skinCfg.emoji} ${skinCfg.name}!`, p2.x, 2.35, p2.z, '#67e8f9', '1.2rem');
+                        spawnCallout(`${skinCfg.emoji} ${skinCfg.name}!`, p2.x, 2.35, p2.z, '#67e8f9', '1.15rem');
                         if (gameState.mode === 'online' && netState.role === 'guest') {
                             sendNetMessage({ type: 'skin', player: 'p2', skin: skinId });
                         }
@@ -3441,9 +3837,10 @@
                 });
             });
 
-            // ลากหมุนกล้องบนฉาก 3D
+            // อนุญาตให้ลากหมุนดูมุมกล้องเฉพาะตอนไม่อยู่ระหว่างต่อสู้ เพื่อกันนิ้วพลาดตอนเล่นบนแท็บเล็ต/มือถือ
             const canvasEl = renderer.domElement;
             canvasEl.addEventListener('pointerdown', (e) => {
+                if (gameState.phase === 'playing') return;
                 camControl.isDragging = true;
                 camControl.lastX = e.clientX;
                 camControl.lastY = e.clientY;
@@ -3452,16 +3849,9 @@
             window.addEventListener('pointermove', (e) => {
                 if (!camControl.isDragging) return;
                 const dx = e.clientX - camControl.lastX;
-                const dy = e.clientY - camControl.lastY;
                 camControl.lastX = e.clientX;
-                camControl.lastY = e.clientY;
                 camControl.yawOffset -= dx * 0.007;
-                camControl.pitchOffset = Math.max(-0.28, Math.min(0.45, camControl.pitchOffset + dy * 0.004));
             });
-            canvasEl.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                camControl.distanceOffset = Math.max(-3.0, Math.min(6.0, camControl.distanceOffset + e.deltaY * 0.008));
-            }, { passive: false });
 
             window.addEventListener('resize', () => {
                 const wrapper = document.getElementById('game-canvas-wrapper');

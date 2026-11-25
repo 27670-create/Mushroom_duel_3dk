@@ -1,0 +1,3492 @@
+```html
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ศึกดาบเห็ด 3D - Mushroom Sword Duel</title>
+
+    <!-- ฟอนต์ภาษาไทยอ่านง่าย สไตล์เกมอาร์เคด -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind CSS สำหรับจัดเลย์เอาต์เต็มจอรองรับแท็บเล็ต มือถือ และคอมพิวเตอร์ -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Three.js สำหรับกราฟิก 3D, Tone.js สำหรับเสียง และ PeerJS สำหรับออนไลน์ข้ามเครื่องผ่านรหัสห้อง 4 หลัก -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: 'Kanit', sans-serif;
+            background: radial-gradient(circle at top, #1e1b4b 0%, #0f172a 58%, #020617 100%);
+            color: #f8fafc;
+        }
+
+        /* กรอบแคนวาส 3D ขยายเต็มพื้นที่ว่างโดยไม่ต้องเลื่อนหน้าจอ */
+        #game-canvas-wrapper {
+            position: relative;
+            flex: 1 1 0%;
+            min-height: 170px;
+            width: 100%;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 2px solid rgba(251, 191, 36, 0.38);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), inset 0 0 24px rgba(139, 92, 246, 0.22);
+            background: #0b1120;
+            touch-action: none;
+        }
+
+        #game-canvas-wrapper canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        #game-canvas-wrapper canvas:active {
+            cursor: grabbing;
+        }
+
+        /* ปุ่มแคปซูลบนแถบเมนู */
+        .btn-pill {
+            background: linear-gradient(180deg, rgba(51, 65, 85, 0.94) 0%, rgba(15, 23, 42, 0.96) 100%);
+            border: 1.5px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 3px 0 rgba(2, 6, 23, 0.85);
+            transition: transform 0.1s ease, border-color 0.15s ease, filter 0.15s ease;
+            cursor: pointer;
+        }
+
+        .btn-pill:hover {
+            border-color: rgba(251, 191, 36, 0.7);
+            filter: brightness(1.08);
+        }
+
+        .btn-pill:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 rgba(2, 6, 23, 0.9);
+        }
+
+        .btn-pill.active-mode {
+            background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+            color: #fffbeb;
+            border-color: #fef08a;
+            box-shadow: 0 3px 0 #78350f, 0 0 12px rgba(245, 158, 11, 0.45);
+        }
+
+        /* จอยสติ๊กอนาล็อก 360 องศา รองรับ Multi-Touch แยกจอย P1 และ P2 */
+        .joy-zone {
+            position: relative;
+            width: 108px;
+            height: 108px;
+            border-radius: 9999px;
+            background: radial-gradient(circle, rgba(30, 41, 59, 0.92) 0%, rgba(15, 23, 42, 0.96) 72%, rgba(251, 191, 36, 0.22) 100%);
+            border: 2.5px solid rgba(148, 163, 184, 0.45);
+            box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.75), 0 6px 16px rgba(0, 0, 0, 0.45);
+            touch-action: none;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .joy-zone-p1 {
+            border-color: rgba(251, 113, 133, 0.65);
+            background: radial-gradient(circle, rgba(69, 10, 10, 0.75) 0%, rgba(15, 23, 42, 0.96) 75%, rgba(244, 63, 94, 0.25) 100%);
+        }
+
+        .joy-zone-p2 {
+            border-color: rgba(56, 189, 248, 0.65);
+            background: radial-gradient(circle, rgba(8, 47, 73, 0.75) 0%, rgba(15, 23, 42, 0.96) 75%, rgba(6, 182, 212, 0.25) 100%);
+        }
+
+        .joy-zone-compact {
+            width: 88px;
+            height: 88px;
+        }
+
+        .joy-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 46px;
+            height: 46px;
+            margin-left: -23px;
+            margin-top: -23px;
+            border-radius: 9999px;
+            background: radial-gradient(circle at 35% 30%, #fef08a 0%, #f59e0b 55%, #b45309 100%);
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65), 0 0 14px rgba(251, 191, 36, 0.5);
+            pointer-events: none;
+            transition: transform 0.04s linear;
+        }
+
+        .joy-knob-compact {
+            width: 38px;
+            height: 38px;
+            margin-left: -19px;
+            margin-top: -19px;
+        }
+
+        .joy-knob-p1 {
+            background: radial-gradient(circle at 35% 30%, #fda4af 0%, #e11d48 55%, #881337 100%);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.65), 0 0 12px rgba(244, 63, 94, 0.55);
+        }
+
+        .joy-knob-p2 {
+            background: radial-gradient(circle at 35% 30%, #a5f3fc 0%, #0284c7 55%, #0c4a6e 100%);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.65), 0 0 12px rgba(56, 189, 248, 0.55);
+        }
+
+        /* ปุ่มกดต่อสู้สไตล์เกมแท็บเล็ตจับถนัดนิ้วโป้ง */
+        .action-btn {
+            position: relative;
+            font-weight: 800;
+            border-radius: 9999px;
+            border: 2.5px solid rgba(255, 255, 255, 0.42);
+            transition: transform 0.07s ease, filter 0.1s ease, box-shadow 0.08s ease;
+            cursor: pointer;
+            touch-action: manipulation;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.05;
+        }
+
+        .action-btn:active, .action-btn.pressed {
+            transform: scale(0.91) translateY(2px);
+            filter: brightness(1.2);
+        }
+
+        .btn-slash {
+            background: radial-gradient(circle at 30% 25%, #fb7185 0%, #e11d48 60%, #881337 100%);
+            box-shadow: 0 5px 0 #4c0519, 0 8px 18px rgba(225, 29, 72, 0.5);
+        }
+
+        .btn-slash-p2 {
+            background: radial-gradient(circle at 30% 25%, #38bdf8 0%, #0284c7 60%, #0c4a6e 100%);
+            box-shadow: 0 5px 0 #082f49, 0 8px 18px rgba(2, 132, 199, 0.5);
+        }
+
+        .btn-thrust {
+            background: radial-gradient(circle at 30% 25%, #fde047 0%, #d97706 65%, #78350f 100%);
+            box-shadow: 0 4px 0 #451a03, 0 6px 14px rgba(217, 119, 6, 0.45);
+        }
+
+        .btn-guard {
+            background: radial-gradient(circle at 30% 25%, #7dd3fc 0%, #0369a1 65%, #0c4a6e 100%);
+            box-shadow: 0 4px 0 #082f49, 0 6px 14px rgba(3, 105, 161, 0.45);
+        }
+
+        .btn-ult {
+            background: radial-gradient(circle at 30% 25%, #e879f9 0%, #9333ea 65%, #4c1d95 100%);
+            box-shadow: 0 4px 0 #2e1065, 0 6px 16px rgba(147, 51, 234, 0.45);
+            opacity: 0.7;
+        }
+
+        .btn-ult.ult-ready {
+            opacity: 1;
+            border-color: #fde047;
+            animation: ultPulse 0.75s ease-in-out infinite alternate;
+        }
+
+        @keyframes ultPulse {
+            from {
+                box-shadow: 0 4px 0 #2e1065, 0 0 12px rgba(240, 171, 252, 0.7);
+                transform: scale(1);
+            }
+            to {
+                box-shadow: 0 4px 0 #2e1065, 0 0 26px rgba(253, 224, 71, 1);
+                transform: scale(1.06);
+            }
+        }
+
+        .hp-fill, .spore-fill {
+            transition: width 0.14s ease-out;
+        }
+
+        @keyframes floatCallout {
+            0% { opacity: 0; transform: translate(-50%, 8px) scale(0.72); }
+            18% { opacity: 1; transform: translate(-50%, -8px) scale(1.12); }
+            80% { opacity: 1; transform: translate(-50%, -30px) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -46px) scale(0.92); }
+        }
+
+        .callout-text {
+            position: absolute;
+            font-weight: 900;
+            white-space: nowrap;
+            text-shadow: 0 3px 0 rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.85);
+            animation: floatCallout 1.0s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            pointer-events: none;
+        }
+
+        /* แถบหนัง Letterbox และเอฟเฟกต์คัทซีน 3D */
+        .cinema-bar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 0;
+            background: #020617;
+            z-index: 26;
+            transition: height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+            pointer-events: none;
+        }
+
+        .cinema-bar-top { top: 0; border-bottom: 2px solid rgba(251, 191, 36, 0.45); }
+        .cinema-bar-bottom { bottom: 0; border-top: 2px solid rgba(251, 191, 36, 0.45); }
+        .cutscene-active .cinema-bar { height: 12%; }
+
+        @keyframes speedFlash {
+            0% { opacity: 0; transform: scale(1.25) rotate(0deg); }
+            25% { opacity: 0.82; transform: scale(1.0) rotate(8deg); }
+            100% { opacity: 0.35; transform: scale(1.08) rotate(18deg); }
+        }
+
+        .ult-speedlines {
+            position: absolute;
+            inset: -20%;
+            pointer-events: none;
+            z-index: 24;
+            background: repeating-conic-gradient(
+                from 0deg,
+                rgba(255, 255, 255, 0.18) 0deg 4deg,
+                transparent 4deg 14deg
+            );
+            animation: speedFlash 0.9s linear infinite;
+        }
+
+        /* ปุ่มเลือกสกินเห็ด */
+        .skin-btn {
+            background: rgba(30, 41, 59, 0.92);
+            border: 2px solid rgba(255, 255, 255, 0.16);
+            transition: all 0.14s ease;
+            cursor: pointer;
+        }
+
+        .skin-btn:hover { border-color: rgba(251, 191, 36, 0.65); }
+
+        .skin-btn.selected-p1 {
+            background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
+            border-color: #fde047;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.55);
+            color: #fff;
+        }
+
+        .skin-btn.selected-p2 {
+            background: linear-gradient(180deg, #0284c7 0%, #1e40af 100%);
+            border-color: #67e8f9;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
+            color: #fff;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translate(-50%, -14px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        .toast-msg { animation: toastIn 0.22s ease-out forwards; }
+
+        @media (max-width: 640px) {
+            .joy-zone { width: 92px; height: 92px; }
+            .joy-knob { width: 40px; height: 40px; margin-left: -20px; margin-top: -20px; }
+            .joy-zone-compact { width: 74px; height: 74px; }
+            .joy-knob-compact { width: 32px; height: 32px; margin-left: -16px; margin-top: -16px; }
+        }
+    </style>
+</head>
+<body class="flex flex-col p-1.5 sm:p-2 gap-1.5 max-w-6xl mx-auto">
+
+    <!-- กล่องแจ้งเตือน Toast -->
+    <div id="toast-container" class="fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 w-max max-w-[92vw]"></div>
+
+    <!-- ===================== แถบบนกระชับ: เลือด สปอร์ และปุ่มลัด ===================== -->
+    <header class="w-full shrink-0 bg-slate-900/88 backdrop-blur-md border border-white/15 rounded-2xl px-2.5 py-1.5 shadow-lg">
+        <div class="grid grid-cols-12 items-center gap-1.5 sm:gap-2">
+            <!-- ฝั่ง P1 (ซ้าย) -->
+            <div class="col-span-4">
+                <div class="flex items-center justify-between text-[11px] sm:text-xs font-extrabold leading-none mb-1">
+                    <span id="p1-label" class="text-rose-300 truncate">🔴 P1 เห็ดแดง</span>
+                    <span id="p1-hp-text" class="text-white ml-1">100</span>
+                </div>
+                <div class="w-full h-3 sm:h-3.5 bg-slate-800 rounded-full overflow-hidden border border-rose-500/45">
+                    <div id="p1-hp-bar" class="hp-fill h-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 rounded-full" style="width: 100%;"></div>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                    <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-fuchsia-400/35">
+                        <div id="p1-spore-bar" class="spore-fill h-full bg-gradient-to-r from-fuchsia-500 to-amber-300 rounded-full" style="width: 0%;"></div>
+                    </div>
+                    <span id="p1-wins" class="text-[11px] leading-none">⚪⚪</span>
+                </div>
+            </div>
+
+            <!-- ตรงกลาง: ปุ่มลัด เล่น 2P จอเดียว / ออนไลน์ / สกิน / มุมกล้อง / เสียง -->
+            <div class="col-span-4 flex flex-col items-center justify-center gap-1">
+                <div class="flex items-center gap-1 flex-wrap justify-center">
+                    <span class="bg-amber-400/20 border border-amber-400/45 text-amber-300 font-black text-[11px] px-2 py-0.5 rounded-full">
+                        ยก <span id="round-num">1</span>
+                    </span>
+                    <button id="btn-quick-2p" class="btn-pill text-[11px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-xl text-cyan-200" title="เล่น 2 คนบนแท็บเล็ตเครื่องเดียวกัน">
+                        👥 2P จอเดียว
+                    </button>
+                    <button id="btn-open-online" class="btn-pill text-[11px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-xl text-emerald-300" title="สร้างห้องออนไลน์ข้ามเครื่อง">
+                        🌐 ออนไลน์
+                    </button>
+                    <button id="btn-open-settings" class="btn-pill text-[11px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-xl text-amber-200">
+                        🎨 สกิน
+                    </button>
+                    <button id="btn-cycle-cam" class="btn-pill text-[11px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-xl text-sky-200">
+                        🎥 ดวลข้าง
+                    </button>
+                    <button id="btn-sound" class="btn-pill text-[11px] sm:text-xs font-bold px-1.5 py-0.5 sm:py-1 rounded-xl text-slate-200">
+                        🔊
+                    </button>
+                </div>
+                <div id="online-status-pill" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/45 text-emerald-300 leading-none">
+                    🌐 ห้อง: ----
+                </div>
+            </div>
+
+            <!-- ฝั่ง P2 (ขวา) -->
+            <div class="col-span-4">
+                <div class="flex items-center justify-between text-[11px] sm:text-xs font-extrabold leading-none mb-1">
+                    <span id="p2-hp-text" class="text-white mr-1">100</span>
+                    <span id="p2-label" class="text-cyan-300 truncate">บอทเห็ดฟ้า 🔵</span>
+                </div>
+                <div class="w-full h-3 sm:h-3.5 bg-slate-800 rounded-full overflow-hidden border border-cyan-400/45">
+                    <div id="p2-hp-bar" class="hp-fill h-full ml-auto bg-gradient-to-l from-blue-600 via-cyan-500 to-emerald-300 rounded-full" style="width: 100%;"></div>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                    <span id="p2-wins" class="text-[11px] leading-none">⚪⚪</span>
+                    <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-fuchsia-400/35">
+                        <div id="p2-spore-bar" class="spore-fill h-full ml-auto bg-gradient-to-l from-fuchsia-500 to-amber-300 rounded-full" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===================== พื้นที่แคนวาส 3D หลักขนาดใหญ่เต็มตา ===================== -->
+    <main id="game-canvas-wrapper">
+        <div id="callout-layer" class="absolute inset-0 pointer-events-none overflow-hidden z-20"></div>
+
+        <!-- ป้ายมุมซ้ายบนในสนาม -->
+        <div class="absolute top-2 left-2 z-10 pointer-events-none flex items-center gap-1.5">
+            <span id="you-indicator" class="bg-slate-950/70 backdrop-blur-sm border border-rose-400/40 text-rose-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                โหมด 1P: 🔴 คุณ vs 🤖 บอท
+            </span>
+        </div>
+
+        <!-- แถบหนัง Letterbox + เส้นสปีดอนิเมะ + HUD คัทซีน 3D -->
+        <div class="cinema-bar cinema-bar-top"></div>
+        <div class="cinema-bar cinema-bar-bottom"></div>
+        <div id="ult-speedlines" class="ult-speedlines hidden"></div>
+
+        <div id="cutscene-hud" class="hidden absolute inset-0 pointer-events-none z-30 flex flex-col justify-between p-3 sm:p-4">
+            <div class="flex items-start justify-between">
+                <div id="cutscene-badge" class="bg-amber-400/95 text-slate-950 font-black text-xs sm:text-sm px-3 py-1 rounded-full shadow-lg border-2 border-white/80">
+                    🎬 CUTSCENE
+                </div>
+                <button id="btn-skip-cutscene" class="pointer-events-auto btn-pill text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl">
+                    ⏭️ ข้ามคัทซีน
+                </button>
+            </div>
+
+            <div class="flex flex-col items-center text-center mb-1">
+                <div id="cutscene-title" class="text-lg sm:text-3xl font-black text-amber-300 drop-shadow-[0_3px_0_rgba(0,0,0,0.95)]"></div>
+                <div id="cutscene-subtitle" class="mt-1 bg-slate-950/80 border border-amber-300/40 text-white text-xs sm:text-sm font-semibold px-3.5 py-1 rounded-2xl max-w-xl shadow-xl"></div>
+            </div>
+        </div>
+
+        <!-- ป้ายประกาศกลางจอ -->
+        <div id="banner-overlay" class="absolute inset-0 z-25 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm transition-opacity duration-250 p-3">
+            <div class="bg-gradient-to-b from-slate-800/95 to-slate-950/95 border-2 border-amber-400/70 rounded-3xl p-4 sm:p-5 max-w-lg w-full text-center shadow-2xl">
+                <div id="banner-emoji" class="text-4xl sm:text-5xl mb-1">🍄⚔️🔥</div>
+                <h2 id="banner-title" class="text-xl sm:text-2xl font-black text-amber-300 mb-1">
+                    ศึกดาบเห็ด 3D!
+                </h2>
+                <p id="banner-desc" class="text-xs sm:text-sm text-slate-200 mb-3 leading-relaxed">
+                    ดวลกับเพื่อนบนแท็บเล็ตได้ทันที 2 แบบ: เล่น 2 คนจอเดียวกัน (ทัช 2 ฝั่ง) หรือสร้างห้องออนไลน์ข้ามเครื่องด้วยรหัส 4 หลัก!
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button id="btn-start-match" class="btn-pill active-mode text-white text-sm font-black px-3 py-2.5 rounded-2xl">
+                        🤖 ดวลบอท 1P
+                    </button>
+                    <button id="btn-banner-2p" class="btn-pill text-cyan-200 border-cyan-400/50 text-sm font-black px-3 py-2.5 rounded-2xl">
+                        👥 2P แท็บเล็ตจอเดียว
+                    </button>
+                    <button id="btn-banner-online" class="btn-pill text-emerald-300 border-emerald-400/50 text-sm font-black px-3 py-2.5 rounded-2xl">
+                        🌐 ออนไลน์ 2 เครื่อง
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ===================== แผงควบคุมล่าง A: โหมด 1P และ โหมดออนไลน์ (จอยใหญ่ 1 ฝั่ง) ===================== -->
+    <section id="controls-single" class="w-full shrink-0 bg-slate-900/88 backdrop-blur-md border border-white/15 rounded-2xl px-3 sm:px-5 py-2 shadow-xl">
+        <div class="flex items-center justify-between gap-2 sm:gap-4">
+            <div class="flex items-center gap-3">
+                <div id="joystick-single-zone" class="joy-zone" aria-label="จอยสติ๊กเคลื่อนที่ 360 องศา">
+                    <span class="absolute top-1.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400/70 pointer-events-none">▲</span>
+                    <span class="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400/70 pointer-events-none">▼</span>
+                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400/70 pointer-events-none">◀</span>
+                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400/70 pointer-events-none">▶</span>
+                    <div id="joystick-single-knob" class="joy-knob"></div>
+                </div>
+                <div class="hidden lg:flex flex-col text-[11px] text-slate-400 leading-snug">
+                    <span class="font-bold text-slate-200">🎮 คีย์บอร์ด</span>
+                    <span><kbd class="px-1 bg-slate-800 rounded">WASD</kbd> เดิน • <kbd class="px-1 bg-slate-800 rounded">Space/F</kbd> ฟัน</span>
+                    <span><kbd class="px-1 bg-slate-800 rounded">E/G</kbd> แทง • <kbd class="px-1 bg-slate-800 rounded">Shift/H</kbd> กัน • <kbd class="px-1 bg-slate-800 rounded">Q/R</kbd> อัลติ</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="flex flex-col items-end gap-1.5">
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <button id="touch-ult" class="action-btn btn-ult text-white w-14 h-14 sm:w-16 sm:h-16">
+                            <span class="text-lg sm:text-xl">🌪️</span>
+                            <span class="text-[9px] sm:text-[10px]">สว่าน</span>
+                            <span id="ult-pct" class="text-[9px] font-black text-amber-200">0%</span>
+                        </button>
+                        <button id="touch-thrust" class="action-btn btn-thrust text-white w-14 h-14 sm:w-16 sm:h-16">
+                            <span class="text-lg sm:text-xl">⚡</span>
+                            <span class="text-[10px] sm:text-xs">แทงทะลุ</span>
+                        </button>
+                    </div>
+                    <div class="pr-3">
+                        <button id="touch-guard" class="action-btn btn-guard text-white w-14 h-11 sm:w-16 sm:h-12 rounded-2xl">
+                            <span class="text-base">🛡️</span>
+                            <span class="text-[10px]">ตั้งรับ</span>
+                        </button>
+                    </div>
+                </div>
+
+                <button id="touch-slash" class="action-btn btn-slash text-white w-20 h-20 sm:w-24 sm:h-24">
+                    <span class="text-2xl sm:text-3xl">🍄</span>
+                    <span class="text-xs sm:text-sm font-black mt-0.5">ฟันเห็ด!</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== แผงควบคุมล่าง B: โหมด 2P แท็บเล็ตจอเดียวกัน (Multi-Touch ซ้าย-ขวา) ===================== -->
+    <section id="controls-dual" class="hidden w-full shrink-0 bg-slate-900/92 backdrop-blur-md border border-amber-400/35 rounded-2xl px-2 sm:px-3 py-1.5 shadow-xl">
+        <div class="grid grid-cols-2 gap-2 sm:gap-3 items-center">
+            <!-- ฝั่งซ้าย: ผู้เล่น 1 (🔴 P1) -->
+            <div class="flex items-center justify-between gap-1.5 sm:gap-2 pr-2 sm:pr-3 border-r-2 border-white/15">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] font-black text-rose-300 mb-0.5">🔴 P1 เดิน</span>
+                    <div id="joystick-p1-zone" class="joy-zone joy-zone-p1 joy-zone-compact">
+                        <div id="joystick-p1-knob" class="joy-knob joy-knob-p1 joy-knob-compact"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                    <div class="grid grid-cols-2 gap-1">
+                        <button id="p1-btn-thrust" class="action-btn btn-thrust text-white w-11 h-11 sm:w-13 sm:h-13">
+                            <span class="text-sm sm:text-base">⚡</span>
+                            <span class="text-[8px] sm:text-[9px]">แทง</span>
+                        </button>
+                        <button id="p1-btn-ult" class="action-btn btn-ult text-white w-11 h-11 sm:w-13 sm:h-13">
+                            <span class="text-sm sm:text-base">🌪️</span>
+                            <span id="p1-ult-pct" class="text-[8px] font-black text-amber-200">0%</span>
+                        </button>
+                        <button id="p1-btn-guard" class="action-btn btn-guard text-white col-span-2 h-9 sm:h-10 rounded-xl">
+                            <span class="text-xs">🛡️ ตั้งรับ</span>
+                        </button>
+                    </div>
+                    <button id="p1-btn-slash" class="action-btn btn-slash text-white w-16 h-16 sm:w-20 sm:h-20">
+                        <span class="text-xl sm:text-2xl">🍄</span>
+                        <span class="text-[10px] sm:text-xs font-black">ฟัน!</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ฝั่งขวา: ผู้เล่น 2 (🔵 P2) -->
+            <div class="flex items-center justify-between gap-1.5 sm:gap-2 pl-1">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] font-black text-cyan-300 mb-0.5">🔵 P2 เดิน</span>
+                    <div id="joystick-p2-zone" class="joy-zone joy-zone-p2 joy-zone-compact">
+                        <div id="joystick-p2-knob" class="joy-knob joy-knob-p2 joy-knob-compact"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                    <div class="grid grid-cols-2 gap-1">
+                        <button id="p2-btn-thrust" class="action-btn btn-thrust text-white w-11 h-11 sm:w-13 sm:h-13">
+                            <span class="text-sm sm:text-base">⚡</span>
+                            <span class="text-[8px] sm:text-[9px]">แทง</span>
+                        </button>
+                        <button id="p2-btn-ult" class="action-btn btn-ult text-white w-11 h-11 sm:w-13 sm:h-13">
+                            <span class="text-sm sm:text-base">🌪️</span>
+                            <span id="p2-ult-pct" class="text-[8px] font-black text-amber-200">0%</span>
+                        </button>
+                        <button id="p2-btn-guard" class="action-btn btn-guard text-white col-span-2 h-9 sm:h-10 rounded-xl">
+                            <span class="text-xs">🛡️ ตั้งรับ</span>
+                        </button>
+                    </div>
+                    <button id="p2-btn-slash" class="action-btn btn-slash-p2 text-white w-16 h-16 sm:w-20 sm:h-20">
+                        <span class="text-xl sm:text-2xl">🍄</span>
+                        <span class="text-[10px] sm:text-xs font-black">ฟัน!</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== MODAL 1: ตั้งค่า โหมด และสกินเห็ด ===================== -->
+    <div id="modal-settings" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3">
+        <div class="bg-slate-900 border-2 border-amber-400/60 rounded-3xl p-4 sm:p-5 max-w-lg w-full max-h-[90dvh] overflow-y-auto shadow-2xl">
+            <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
+                <h3 class="text-lg sm:text-xl font-black text-amber-300">🎨 สกินเห็ด & โหมดการเล่น</h3>
+                <button id="btn-close-settings" class="btn-pill text-slate-200 text-sm font-bold px-3 py-1 rounded-xl">✕ ปิด</button>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-400 mb-1.5">เลือกโหมดการเล่น</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btn-mode-1p" class="btn-pill active-mode text-xs sm:text-sm font-bold px-3 py-2 rounded-xl">🤖 1P สู้บอท</button>
+                    <button id="btn-mode-2p" class="btn-pill text-xs sm:text-sm font-bold px-3 py-2 rounded-xl text-cyan-200">👥 2P แท็บเล็ตจอเดียว</button>
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-300">ระดับบอท:</span>
+                    <select id="select-difficulty" class="btn-pill text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl text-amber-200 bg-slate-800 outline-none flex-1">
+                        <option value="easy">ชิลๆ (ฝึกฟัน)</option>
+                        <option value="normal" selected>เอาเรื่อง (สมดุล)</option>
+                        <option value="hard">เทพเห็ด (โหดจัด)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-xs font-extrabold text-rose-300 mb-1.5">🔴 สกินดาบเห็ด P1</label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    <button data-player="p1" data-skin="classic" class="skin-btn selected-p1 text-xs font-bold px-2 py-2 rounded-xl">🍄 คลาสสิก</button>
+                    <button data-player="p1" data-skin="furry" class="skin-btn text-xs font-bold px-2 py-2 rounded-xl text-amber-100">🐻 เห็ดมีขน</button>
+                    <button data-player="p1" data-skin="spiky" class="skin-btn text-xs font-bold px-2 py-2 rounded-xl text-orange-200">🌵 เห็ดมีหนาม</button>
+                    <button data-player="p1" data-skin="water" class="skin-btn text-xs font-bold px-2 py-2 rounded-xl text-cyan-200">💧 เห็ดน้ำ</button>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-extrabold text-cyan-300 mb-1.5">🔵 สกินดาบเห็ด P2</label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    <button data-player="p2" data-skin="classic" class="skin-btn selected-p2 text-xs font-bold px-2 py-2 rounded-xl">🍄 คลาสสิก</button>
+                    <button data-player="p2" data-skin="furry" class="skin-btn text-xs font-bold px-2 py-2 rounded-xl text-amber-100">🐻 เห็ดมีขน</button>
+                    <button data-player="p2" data-skin="spiky" class="skin-btn text-xs font-bold px-2 py-2 rounded-xl text-orange-200">🌵 เห็ดมีหนาม</button>
+                    <button data-player="p2" data-skin="water" class="skin-btn text-xs font-bold px-2 py-2 rounded-xl text-cyan-200">💧 เห็ดน้ำ</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+                <button id="btn-cutscene-toggle" class="btn-pill active-mode text-xs sm:text-sm font-bold px-3 py-2 rounded-xl">🎬 คัทซีน: เปิด</button>
+                <button id="btn-restart" class="btn-pill text-xs sm:text-sm font-bold px-3 py-2 rounded-xl text-rose-200">🔄 รีสตาร์ทแมตช์</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== MODAL 2: ระบบออนไลน์เชื่อมต่อตรงผ่านรหัสห้อง 4 หลัก (PeerJS P2P) ===================== -->
+    <div id="modal-online" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3">
+        <div class="bg-slate-900 border-2 border-emerald-400/60 rounded-3xl p-4 sm:p-5 max-w-lg w-full max-h-[90dvh] overflow-y-auto shadow-2xl">
+            <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
+                <h3 class="text-lg sm:text-xl font-black text-emerald-300">🌐 ออนไลน์ข้ามเครื่อง (รหัส 4 หลัก)</h3>
+                <button id="btn-close-online" class="btn-pill text-slate-200 text-sm font-bold px-3 py-1 rounded-xl">✕ ปิด</button>
+            </div>
+
+            <!-- วิธีเล่นบนแท็บเล็ต -->
+            <div class="bg-emerald-950/45 border border-emerald-400/30 rounded-2xl p-2.5 mb-3 text-xs text-slate-200 leading-relaxed">
+                <p class="font-bold text-emerald-300 mb-0.5">📱 วิธีดวลออนไลน์ 2 เครื่อง:</p>
+                <p>1) เครื่องแรกกด <b>"สร้างห้อง"</b> จะได้เลข 4 หลัก • 2) เครื่องเพื่อนกดเปิดเกมนี้แล้วกรอกเลข 4 หลักกด <b>"เข้าห้อง"</b> ได้เลย!</p>
+                <p class="text-amber-300 mt-1">💡 ถ้าอยู่ข้างๆ กันบนแท็บเล็ตเครื่องเดียว แนะนำกดปุ่ม <b>👥 2P จอเดียว</b> เล่นพร้อมกันได้ทันทีไม่ต้องต่อเน็ต!</p>
+            </div>
+
+            <!-- สถานะการเชื่อมต่อ -->
+            <div class="bg-slate-950/75 border border-white/10 rounded-xl px-3 py-2 mb-3 text-xs flex items-center justify-between">
+                <span id="online-conn-status" class="font-bold text-sky-300">🟢 พร้อมสร้างห้องหรือเข้าห้องออนไลน์!</span>
+            </div>
+
+            <!-- มุมมอง A: สร้างห้อง หรือ กรอกเลข 4 หลักเข้าห้อง -->
+            <div id="online-lobby-view" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div class="bg-slate-800/70 border border-emerald-400/35 rounded-2xl p-3 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-sm font-extrabold text-emerald-300 mb-1">🏠 สร้างห้องใหม่ (P1)</h4>
+                        <p class="text-[11px] text-slate-300 mb-2.5">รับรหัสตัวเลข 4 หลัก เพื่อบอกเพื่อนมากดเข้าห้อง</p>
+                    </div>
+                    <button id="btn-create-room" class="btn-pill active-mode text-sm font-black px-3 py-2.5 rounded-xl w-full">
+                        ➕ สร้างห้องออนไลน์
+                    </button>
+                </div>
+
+                <div class="bg-slate-800/70 border border-cyan-400/35 rounded-2xl p-3 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-sm font-extrabold text-cyan-300 mb-1">🔑 เข้าห้องเพื่อน (P2)</h4>
+                        <input id="input-room-code" type="tel" inputmode="numeric" maxlength="4" placeholder="ใส่เลข 4 หลัก"
+                            class="w-full bg-slate-950 border border-cyan-400/50 rounded-xl px-3 py-2 text-lg font-black tracking-[0.3em] text-center text-amber-300 outline-none focus:border-amber-400 mb-2" />
+                    </div>
+                    <button id="btn-join-room" class="btn-pill text-cyan-200 text-sm font-black px-3 py-2.5 rounded-xl w-full">
+                        🚀 เชื่อมต่อเข้าห้อง
+                    </button>
+                </div>
+            </div>
+
+            <!-- มุมมอง B: อยู่ในห้องออนไลน์แล้ว -->
+            <div id="online-room-view" class="hidden">
+                <div class="bg-gradient-to-b from-emerald-950/60 to-slate-950 border border-emerald-400/45 rounded-2xl p-4 text-center mb-3">
+                    <span class="text-xs text-emerald-300 font-bold">รหัสห้อง 4 หลัก (บอกเพื่อนได้เลย!)</span>
+                    <div class="flex items-center justify-center gap-2 mt-1 mb-2">
+                        <span id="room-code-display" class="text-4xl font-black tracking-[0.28em] text-amber-300 font-mono">----</span>
+                        <button id="btn-copy-room-code" class="btn-pill text-xs font-bold px-3 py-1.5 rounded-xl text-white">📋 คัดลอก</button>
+                    </div>
+                    <p id="room-role-badge" class="text-xs font-bold text-slate-200"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div class="bg-rose-950/40 border border-rose-400/40 rounded-2xl p-2.5 text-center">
+                        <div class="text-xs font-black text-rose-300">🔴 เจ้าห้อง (P1)</div>
+                        <div id="room-host-status" class="text-[11px] text-emerald-300 font-bold mt-1">🟢 เชื่อมต่อแล้ว</div>
+                    </div>
+                    <div class="bg-cyan-950/40 border border-cyan-400/40 rounded-2xl p-2.5 text-center">
+                        <div class="text-xs font-black text-cyan-300">🔵 เพื่อน (P2)</div>
+                        <div id="room-guest-status" class="text-[11px] text-amber-200 font-semibold mt-1">⏳ รอเพื่อนกรอกรหัส...</div>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="btn-start-online-match" class="flex-1 btn-pill active-mode text-sm font-black px-4 py-2.5 rounded-xl disabled:opacity-45" disabled>
+                        ⚔️ เริ่มดวลออนไลน์!
+                    </button>
+                    <button id="btn-leave-room" class="btn-pill text-rose-300 text-sm font-extrabold px-4 py-2.5 rounded-xl">
+                        🚪 ออกจากห้อง
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== สคริปต์หลักของเกม 3D + 2P Multi-Touch + ออนไลน์ P2P ===================== -->
+    <script>
+        // ===================== 0. เครื่องมือแจ้งเตือนและคัดลอกข้อความ =====================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const colors = {
+                info: 'bg-slate-900/95 border-amber-400/60 text-amber-200',
+                success: 'bg-emerald-950/95 border-emerald-400/70 text-emerald-200',
+                error: 'bg-rose-950/95 border-rose-400/70 text-rose-200'
+            };
+            const el = document.createElement('div');
+            el.className = `toast-msg border px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-bold shadow-xl ${colors[type] || colors.info}`;
+            el.textContent = message;
+            container.appendChild(el);
+            setTimeout(() => {
+                if (el.parentNode) el.parentNode.removeChild(el);
+            }, 2600);
+        }
+
+        function copyTextSafe(text, successMsg) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast(successMsg || 'คัดลอกเรียบร้อย!', 'success');
+            } catch (err) {
+                showToast('คัดลอกรหัส: ' + text, 'info');
+            }
+        }
+
+        // ===================== 1. ระบบเสียงสังเคราะห์ด้วย Tone.js =====================
+        class SoundManager {
+            constructor() {
+                this.enabled = true;
+                this.initialized = false;
+                this.synths = {};
+            }
+
+            init() {
+                if (this.initialized) {
+                    if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
+                        Tone.start().catch(() => {});
+                    }
+                    return;
+                }
+                if (typeof Tone === 'undefined') return;
+                try {
+                    Tone.start().catch(() => {});
+                    this.synths.swing = new Tone.NoiseSynth({
+                        noise: { type: 'pink' },
+                        envelope: { attack: 0.01, decay: 0.14, sustain: 0 }
+                    }).toDestination();
+                    this.synths.swing.volume.value = -10;
+
+                    this.synths.hit = new Tone.MembraneSynth({
+                        pitchDecay: 0.05,
+                        octaves: 5,
+                        envelope: { attack: 0.004, decay: 0.22, sustain: 0.01, release: 0.2 }
+                    }).toDestination();
+                    this.synths.hit.volume.value = -4;
+
+                    this.synths.clash = new Tone.MetalSynth({
+                        frequency: 360,
+                        envelope: { attack: 0.002, decay: 0.28, release: 0.12 },
+                        harmonicity: 5.1,
+                        modulationIndex: 28,
+                        resonance: 2600
+                    }).toDestination();
+                    this.synths.clash.volume.value = -8;
+
+                    this.synths.chime = new Tone.PolySynth(Tone.Synth, {
+                        oscillator: { type: 'triangle' },
+                        envelope: { attack: 0.01, decay: 0.25, sustain: 0.1, release: 0.3 }
+                    }).toDestination();
+                    this.synths.chime.volume.value = -8;
+
+                    this.synths.spin = new Tone.Synth({
+                        oscillator: { type: 'sawtooth' },
+                        envelope: { attack: 0.02, decay: 0.35, sustain: 0.2, release: 0.25 }
+                    }).toDestination();
+                    this.synths.spin.volume.value = -10;
+
+                    this.initialized = true;
+                } catch (err) {}
+            }
+
+            playSwing(heavy = false) {
+                if (!this.enabled || !this.initialized) return;
+                try { this.synths.swing.triggerAttackRelease(heavy ? '8n' : '16n'); } catch (e) {}
+            }
+
+            playHit(heavy = false) {
+                if (!this.enabled || !this.initialized) return;
+                try { this.synths.hit.triggerAttackRelease(heavy ? 'G1' : 'C2', '8n'); } catch (e) {}
+            }
+
+            playClash() {
+                if (!this.enabled || !this.initialized) return;
+                try { this.synths.clash.triggerAttackRelease('16n'); } catch (e) {}
+            }
+
+            playGuard() {
+                if (!this.enabled || !this.initialized) return;
+                try { this.synths.chime.triggerAttackRelease(['C4', 'G4'], '16n'); } catch (e) {}
+            }
+
+            playPowerup() {
+                if (!this.enabled || !this.initialized) return;
+                try {
+                    const now = Tone.now();
+                    this.synths.chime.triggerAttackRelease('C5', '16n', now);
+                    this.synths.chime.triggerAttackRelease('E5', '16n', now + 0.08);
+                    this.synths.chime.triggerAttackRelease('G5', '8n', now + 0.16);
+                    this.synths.chime.triggerAttackRelease('C6', '8n', now + 0.25);
+                } catch (e) {}
+            }
+
+            playSpin() {
+                if (!this.enabled || !this.initialized) return;
+                try {
+                    const now = Tone.now();
+                    this.synths.spin.triggerAttackRelease('C4', '16n', now);
+                    this.synths.spin.triggerAttackRelease('E4', '16n', now + 0.12);
+                    this.synths.spin.triggerAttackRelease('G4', '16n', now + 0.24);
+                    this.synths.spin.triggerAttackRelease('C5', '8n', now + 0.36);
+                } catch (e) {}
+            }
+
+            playVictory() {
+                if (!this.enabled || !this.initialized) return;
+                try {
+                    const now = Tone.now();
+                    this.synths.chime.triggerAttackRelease(['C4', 'E4', 'G4'], '8n', now);
+                    this.synths.chime.triggerAttackRelease(['D4', 'F4', 'A4'], '8n', now + 0.15);
+                    this.synths.chime.triggerAttackRelease(['E4', 'G4', 'B4'], '8n', now + 0.30);
+                    this.synths.chime.triggerAttackRelease(['C5', 'E5', 'G5'], '2n', now + 0.45);
+                } catch (e) {}
+            }
+
+            playCutsceneBoom(pitch = 'C2') {
+                if (!this.enabled || !this.initialized) return;
+                try {
+                    const now = Tone.now();
+                    this.synths.hit.triggerAttackRelease(pitch, '4n', now);
+                    this.synths.chime.triggerAttackRelease(['G4', 'C5'], '8n', now + 0.04);
+                } catch (e) {}
+            }
+
+            playUltCharge() {
+                if (!this.enabled || !this.initialized) return;
+                try {
+                    const now = Tone.now();
+                    this.synths.spin.triggerAttackRelease('C4', '8n', now);
+                    this.synths.spin.triggerAttackRelease('G4', '8n', now + 0.18);
+                    this.synths.chime.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '4n', now + 0.36);
+                } catch (e) {}
+            }
+
+            playWaterSplash() {
+                if (!this.enabled || !this.initialized) return;
+                try {
+                    const now = Tone.now();
+                    this.synths.chime.triggerAttackRelease('E5', '32n', now);
+                    this.synths.chime.triggerAttackRelease('B5', '32n', now + 0.05);
+                } catch (e) {}
+            }
+        }
+
+        // ===================== 2. ค่าคงที่ สกินเห็ด และสถานะเกม =====================
+        const ARENA_RADIUS = 8.4;
+        const PEER_PREFIX = 'mushduel3d-room-';
+        const sound = new SoundManager();
+
+        const SKIN_CONFIGS = {
+            classic: {
+                id: 'classic',
+                name: 'เห็ดคลาสสิก',
+                emoji: '🍄',
+                ultName: 'สว่านเห็ดพิฆาต!!',
+                hitColor: null,
+                introLine: 'เตรียมรับคมดาบเห็ดลายจุดสุดคลาสสิกของข้า!'
+            },
+            furry: {
+                id: 'furry',
+                name: 'เห็ดมีขน',
+                emoji: '🐻',
+                ultName: 'พายุสว่านเห็ดขนฟู!!',
+                hitColor: 0xfde68a,
+                introLine: 'เห็ดมีขนดกนุ่มฟูของข้า ทั้งหนาทั้งฟาดจุก!'
+            },
+            spiky: {
+                id: 'spiky',
+                name: 'เห็ดมีหนาม',
+                emoji: '🌵',
+                ultName: 'กงจักรเห็ดหนามทมิฬ!!',
+                hitColor: 0xfb923c,
+                introLine: 'ระวังตัวไว้! ดาบเห็ดหนามแหลมนี้ทิ่มทะลุทุกอย่าง!'
+            },
+            water: {
+                id: 'water',
+                name: 'เห็ดน้ำ (Water)',
+                emoji: '💧',
+                ultName: 'คลื่นสว่านเห็ดวารี!!',
+                hitColor: 0x38bdf8,
+                introLine: 'พลังเห็ดวารีชุ่มฉ่ำ จะซัดเจ้าให้กระเด็นเปียกโชก!'
+            }
+        };
+
+        const CAMERA_MODES = [
+            { id: 'side', label: '🎥 ดวลข้าง', desc: 'เห็นทั้งสองฝั่งชัด เล่น 2P จอเดียวง่ายสุด!' },
+            { id: 'chase', label: '🎥 ตามหลัง', desc: 'มุมมองด้านหลังตัวละคร สไตล์แอ็กชัน 3D!' },
+            { id: 'top', label: '🎥 มุมสูง', desc: 'มุมสูงกะระยะฟันและเห็ดทองคำง่ายสุด!' }
+        ];
+
+        let scene, camera, renderer;
+        let p1, p2;
+        let particles = [];
+        let ambientSpores = [];
+        let goldenMushroom = null;
+        let goldenSpawnTimer = 5.5;
+        let lastFrameTime = 0;
+
+        const camControl = {
+            modeIndex: 0,
+            yawOffset: 0,
+            pitchOffset: 0,
+            distanceOffset: 0,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0,
+            currentYaw: 0
+        };
+
+        // อินพุตคีย์บอร์ด + จอยสติ๊ก 3 ตัวแยก Multi-Touch อิสระ
+        const keys = {};
+        const joySingle = { x: 0, y: 0 };
+        const joyP1 = { x: 0, y: 0 };
+        const joyP2 = { x: 0, y: 0 };
+        const touchGuard = { single: false, p1: false, p2: false };
+
+        const gameState = {
+            mode: '1p',            // '1p', '2p', 'online'
+            difficulty: 'normal',
+            phase: 'menu',         // 'menu', 'cutscene', 'playing', 'round_over', 'match_over'
+            round: 1,
+            p1Wins: 0,
+            p2Wins: 0,
+            hitStopTimer: 0,
+            cameraShake: 0,
+            clockTime: 0,
+            cutscenesEnabled: true,
+            p1Skin: 'classic',
+            p2Skin: 'classic'
+        };
+
+        const cutsceneState = {
+            active: false,
+            type: null,
+            timer: 0,
+            duration: 0,
+            actor: null,
+            onComplete: null,
+            lastBeat: -1
+        };
+
+        // สถานะออนไลน์แบบ P2P (PeerJS WebRTC)
+        const netState = {
+            peer: null,
+            conn: null,
+            connected: false,
+            roomCode: null,
+            role: null,            // 'host' (P1) | 'guest' (P2)
+            lastSyncTime: 0,
+            remoteTarget: { x: 3.8, z: 0, facing: -Math.PI / 2, state: 'idle' }
+        };
+
+        function getControlledFighter() {
+            if (gameState.mode === 'online' && netState.role === 'guest') return p2;
+            return p1;
+        }
+
+        // ===================== 3. คลาสนักสู้ดาบเห็ด 3D =====================
+        class MushroomFighter {
+            constructor(config) {
+                this.id = config.id;
+                this.name = config.name;
+                this.capColor = config.capColor;
+                this.suitColor = config.suitColor;
+                this.pantsColor = config.pantsColor;
+                this.glowColor = config.glowColor;
+                this.startX = config.startX;
+
+                this.x = config.startX;
+                this.z = 0;
+                this.vx = 0;
+                this.vz = 0;
+                this.facing = config.startX < 0 ? Math.PI / 2 : -Math.PI / 2;
+
+                this.maxHp = 100;
+                this.hp = 100;
+                this.spore = 0;
+
+                this.state = 'idle';
+                this.stateTimer = 0;
+                this.stateDuration = 0;
+                this.attackCooldown = 0;
+                this.hasHitThisSwing = false;
+                this.spinTickTimer = 0;
+                this.hitFlashTimer = 0;
+                this.giantTimer = 0;
+                this.swordScale = 1.0;
+
+                this.skin = config.skin || 'classic';
+                this.waterDroplets = [];
+                this.furTufts = [];
+                this.waterRings = [];
+
+                this.aiThinkTimer = 0;
+                this.aiStrafeDir = 1;
+                this.aiDesiredGuard = false;
+
+                this.buildMesh();
+                scene.add(this.root);
+            }
+
+            buildMesh() {
+                this.root = new THREE.Group();
+                this.bodyGroup = new THREE.Group();
+                this.root.add(this.bodyGroup);
+
+                this.suitMat = new THREE.MeshStandardMaterial({ color: this.suitColor, roughness: 0.45 });
+                this.pantsMat = new THREE.MeshStandardMaterial({ color: this.pantsColor, roughness: 0.55 });
+                const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.5 });
+                const beltMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.5, roughness: 0.3 });
+                const shoeMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+                const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+                const legGeo = new THREE.CylinderGeometry(0.14, 0.12, 0.68, 10);
+                this.leftLeg = new THREE.Group();
+                this.leftLeg.position.set(-0.24, 0.72, 0);
+                const lLegMesh = new THREE.Mesh(legGeo, this.pantsMat);
+                lLegMesh.position.y = -0.34;
+                lLegMesh.castShadow = true;
+                const lShoe = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.38), shoeMat);
+                lShoe.position.set(0, -0.66, 0.08);
+                lShoe.castShadow = true;
+                this.leftLeg.add(lLegMesh, lShoe);
+                this.bodyGroup.add(this.leftLeg);
+
+                this.rightLeg = new THREE.Group();
+                this.rightLeg.position.set(0.24, 0.72, 0);
+                const rLegMesh = new THREE.Mesh(legGeo, this.pantsMat);
+                rLegMesh.position.y = -0.34;
+                rLegMesh.castShadow = true;
+                const rShoe = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.38), shoeMat);
+                rShoe.position.set(0, -0.66, 0.08);
+                rShoe.castShadow = true;
+                this.rightLeg.add(rLegMesh, rShoe);
+                this.bodyGroup.add(this.rightLeg);
+
+                const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.40, 0.38, 14), this.pantsMat);
+                pelvis.position.y = 0.86;
+                pelvis.castShadow = true;
+                this.bodyGroup.add(pelvis);
+
+                const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.12, 16), beltMat);
+                belt.position.y = 1.06;
+                this.bodyGroup.add(belt);
+
+                const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.39, 0.76, 14), this.suitMat);
+                torso.position.y = 1.46;
+                torso.castShadow = true;
+                this.bodyGroup.add(torso);
+
+                const armGeo = new THREE.CylinderGeometry(0.11, 0.10, 0.62, 10);
+                const fistGeo = new THREE.SphereGeometry(0.13, 10, 10);
+
+                this.leftArm = new THREE.Group();
+                this.leftArm.position.set(-0.54, 1.72, 0);
+                const lArmMesh = new THREE.Mesh(armGeo, this.suitMat);
+                lArmMesh.position.y = -0.26;
+                lArmMesh.castShadow = true;
+                const lFist = new THREE.Mesh(fistGeo, skinMat);
+                lFist.position.y = -0.58;
+                this.leftArm.add(lArmMesh, lFist);
+                this.leftArm.rotation.z = 0.45;
+                this.bodyGroup.add(this.leftArm);
+
+                this.rightArm = new THREE.Group();
+                this.rightArm.position.set(0.54, 1.72, 0);
+                const rArmMesh = new THREE.Mesh(armGeo, this.suitMat);
+                rArmMesh.position.y = -0.26;
+                rArmMesh.castShadow = true;
+                const rFist = new THREE.Mesh(fistGeo, skinMat);
+                rFist.position.y = -0.58;
+                this.rightArm.add(rArmMesh, rFist);
+                this.rightArm.rotation.z = -0.45;
+                this.bodyGroup.add(this.rightArm);
+
+                this.headGroup = new THREE.Group();
+                this.headGroup.position.set(0, 2.15, 0);
+                const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 14), skinMat);
+                headMesh.castShadow = true;
+                this.headGroup.add(headMesh);
+
+                const headband = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.36, 0.06, 8, 20),
+                    new THREE.MeshStandardMaterial({ color: this.capColor, roughness: 0.35 })
+                );
+                headband.rotation.x = Math.PI / 2;
+                headband.position.y = 0.14;
+                this.headGroup.add(headband);
+
+                [-0.13, 0.13].forEach((ex) => {
+                    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 8), eyeWhiteMat);
+                    eyeW.position.set(ex, 0.03, 0.33);
+                    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.048, 8, 8), eyeMat);
+                    pupil.position.set(ex, 0.03, 0.39);
+                    this.headGroup.add(eyeW, pupil);
+                });
+
+                const browMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+                const lBrow = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.035, 0.04), browMat);
+                lBrow.position.set(-0.14, 0.13, 0.36);
+                lBrow.rotation.z = -0.25;
+                const rBrow = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.035, 0.04), browMat);
+                rBrow.position.set(0.14, 0.13, 0.36);
+                rBrow.rotation.z = 0.25;
+                this.headGroup.add(lBrow, rBrow);
+                this.bodyGroup.add(this.headGroup);
+
+                // ดาบเห็ดตรงเป้ากางเกง
+                this.hipPivot = new THREE.Group();
+                this.hipPivot.position.set(0, 0.88, 0.36);
+                this.bodyGroup.add(this.hipPivot);
+
+                this.swordMeshGroup = new THREE.Group();
+                this.hipPivot.add(this.swordMeshGroup);
+
+                const guardMesh = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.06, 10, 16), beltMat);
+                guardMesh.position.set(0, 0, 0.04);
+                this.swordMeshGroup.add(guardMesh);
+
+                this.stemMat = new THREE.MeshStandardMaterial({
+                    color: 0xfff8e7,
+                    emissive: this.glowColor,
+                    emissiveIntensity: 0.12,
+                    roughness: 0.35
+                });
+                this.stemMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.19, 1.65, 14), this.stemMat);
+                this.stemMesh.rotation.x = Math.PI / 2;
+                this.stemMesh.position.set(0, 0.08, 0.85);
+                this.stemMesh.castShadow = true;
+                this.swordMeshGroup.add(this.stemMesh);
+
+                this.capMat = new THREE.MeshStandardMaterial({
+                    color: this.capColor,
+                    emissive: this.glowColor,
+                    emissiveIntensity: 0.22,
+                    roughness: 0.3
+                });
+
+                this.capGroup = new THREE.Group();
+                this.capGroup.position.set(0, 0.12, 1.62);
+                this.capGroup.rotation.x = Math.PI / 2;
+                this.swordMeshGroup.add(this.capGroup);
+
+                this.capDome = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.46, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.58),
+                    this.capMat
+                );
+                this.capDome.scale.set(1.0, 1.15, 1.0);
+                this.capDome.castShadow = true;
+                this.capGroup.add(this.capDome);
+
+                this.gillMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.7 });
+                const gillMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.16, 0.12, 16), this.gillMat);
+                gillMesh.position.y = -0.02;
+                this.capGroup.add(gillMesh);
+
+                this.swordSkinGroup = new THREE.Group();
+                this.swordMeshGroup.add(this.swordSkinGroup);
+
+                this.capSkinGroup = new THREE.Group();
+                this.capGroup.add(this.capSkinGroup);
+
+                this.tipSpikeMat = new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    emissive: this.glowColor,
+                    emissiveIntensity: 0.85,
+                    roughness: 0.15
+                });
+                this.tipSpike = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 10), this.tipSpikeMat);
+                this.tipSpike.position.y = 0.62;
+                this.capGroup.add(this.tipSpike);
+
+                this.applySkin(this.skin);
+
+                this.swordMidRef = new THREE.Object3D();
+                this.swordMidRef.position.set(0, 0.1, 1.15);
+                this.swordMeshGroup.add(this.swordMidRef);
+
+                this.swordTipRef = new THREE.Object3D();
+                this.swordTipRef.position.set(0, 0.12, 2.18);
+                this.swordMeshGroup.add(this.swordTipRef);
+
+                const trailMat = new THREE.MeshBasicMaterial({
+                    color: this.glowColor,
+                    transparent: true,
+                    opacity: 0,
+                    side: THREE.DoubleSide
+                });
+                this.slashTrail = new THREE.Mesh(
+                    new THREE.RingGeometry(1.1, 2.35, 20, 1, -Math.PI * 0.45, Math.PI * 0.9),
+                    trailMat
+                );
+                this.slashTrail.rotation.x = -Math.PI / 2;
+                this.slashTrail.position.set(0, 0.98, 0.25);
+                this.root.add(this.slashTrail);
+
+                const footRingMat = new THREE.MeshBasicMaterial({
+                    color: this.glowColor,
+                    transparent: true,
+                    opacity: 0.58,
+                    side: THREE.DoubleSide
+                });
+                this.footRing = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.80, 24), footRingMat);
+                this.footRing.rotation.x = -Math.PI / 2;
+                this.footRing.position.y = 0.03;
+                this.root.add(this.footRing);
+            }
+
+            applySkin(skinId) {
+                this.skin = SKIN_CONFIGS[skinId] ? skinId : 'classic';
+                this.waterDroplets = [];
+                this.furTufts = [];
+                this.waterRings = [];
+
+                while (this.swordSkinGroup.children.length > 0) {
+                    this.swordSkinGroup.remove(this.swordSkinGroup.children[0]);
+                }
+                while (this.capSkinGroup.children.length > 0) {
+                    this.capSkinGroup.remove(this.capSkinGroup.children[0]);
+                }
+
+                this.stemMat.color.setHex(0xfff8e7);
+                this.stemMat.transparent = false;
+                this.stemMat.opacity = 1.0;
+                this.stemMat.roughness = 0.35;
+                this.stemMat.metalness = 0.05;
+                this.stemMat.emissive.setHex(this.glowColor);
+                this.stemMat.emissiveIntensity = 0.12;
+
+                this.capMat.color.setHex(this.capColor);
+                this.capMat.transparent = false;
+                this.capMat.opacity = 1.0;
+                this.capMat.roughness = 0.3;
+                this.capMat.metalness = 0.08;
+                this.capMat.emissive.setHex(this.glowColor);
+                this.capMat.emissiveIntensity = 0.22;
+
+                this.gillMat.color.setHex(0xfde68a);
+                this.gillMat.transparent = false;
+                this.gillMat.opacity = 1.0;
+
+                this.tipSpike.scale.set(1, 1, 1);
+                this.tipSpikeMat.color.setHex(0xffffff);
+                this.tipSpikeMat.emissive.setHex(this.glowColor);
+
+                if (this.skin === 'classic') {
+                    const spotMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+                    const spotGeo = new THREE.SphereGeometry(0.09, 8, 8);
+                    [
+                        [0.35, 0.25, 0], [-0.35, 0.25, 0], [0, 0.25, 0.35], [0, 0.25, -0.35],
+                        [0.24, 0.38, 0.24], [-0.24, 0.38, -0.24], [-0.24, 0.38, 0.24], [0.24, 0.38, -0.24]
+                    ].forEach(([sx, sy, sz]) => {
+                        const spot = new THREE.Mesh(spotGeo, spotMat);
+                        spot.position.set(sx, sy, sz);
+                        spot.scale.set(1, 0.55, 1);
+                        this.capSkinGroup.add(spot);
+                    });
+                } else if (this.skin === 'furry') {
+                    this.stemMat.color.setHex(0xf5deb3);
+                    this.stemMat.roughness = 0.92;
+                    this.capMat.roughness = 0.95;
+
+                    const darkFurColor = this.id === 'p1' ? 0x5c2d16 : 0x1e3a5f;
+                    const midFurColor = this.id === 'p1' ? 0x9a5b32 : 0x3b6e9c;
+                    const baseFurMat = new THREE.MeshStandardMaterial({ color: darkFurColor, roughness: 0.95 });
+                    const tuftMat = new THREE.MeshStandardMaterial({ color: midFurColor, roughness: 0.9 });
+                    const puffMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.95 });
+
+                    const puffGeo = new THREE.DodecahedronGeometry(0.16, 0);
+                    for (let i = 0; i < 12; i++) {
+                        const a = (i / 12) * Math.PI * 2;
+                        const r = 0.22 + (i % 2) * 0.08;
+                        const puff = new THREE.Mesh(puffGeo, i % 2 === 0 ? baseFurMat : tuftMat);
+                        puff.position.set(Math.cos(a) * r, Math.sin(a) * r + 0.02, 0.10 + (i % 3) * 0.05);
+                        puff.scale.set(1.1, 1.1, 0.85);
+                        this.swordSkinGroup.add(puff);
+                        this.furTufts.push({ mesh: puff, baseRotZ: puff.rotation.z, phase: i * 0.6 });
+                    }
+
+                    const hairStrandGeo = new THREE.ConeGeometry(0.045, 0.30, 6);
+                    for (let ring = 0; ring < 5; ring++) {
+                        const zPos = 0.28 + ring * 0.28;
+                        for (let i = 0; i < 8; i++) {
+                            const a = (i / 8) * Math.PI * 2 + ring * 0.4;
+                            const hair = new THREE.Mesh(hairStrandGeo, (ring + i) % 3 === 0 ? puffMat : baseFurMat);
+                            hair.position.set(Math.cos(a) * 0.17, 0.08 + Math.sin(a) * 0.17, zPos);
+                            hair.rotation.z = a - Math.PI / 2;
+                            hair.rotation.x = 0.45;
+                            this.swordSkinGroup.add(hair);
+                            this.furTufts.push({ mesh: hair, baseRotZ: hair.rotation.z, phase: ring + i });
+                        }
+                    }
+
+                    const capFurGeo = new THREE.ConeGeometry(0.06, 0.34, 6);
+                    for (let i = 0; i < 16; i++) {
+                        const a = (i / 16) * Math.PI * 2;
+                        const f = new THREE.Mesh(capFurGeo, i % 2 === 0 ? puffMat : tuftMat);
+                        f.position.set(Math.cos(a) * 0.44, 0.04, Math.sin(a) * 0.44);
+                        f.rotation.z = -Math.cos(a) * 1.15;
+                        f.rotation.x = Math.sin(a) * 1.15;
+                        this.capSkinGroup.add(f);
+                        this.furTufts.push({ mesh: f, baseRotZ: f.rotation.z, phase: i * 0.5 });
+                    }
+
+                    for (let i = 0; i < 8; i++) {
+                        const a = (i / 8) * Math.PI * 2;
+                        const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 7), puffMat);
+                        tuft.position.set(Math.cos(a) * 0.26, 0.36, Math.sin(a) * 0.26);
+                        this.capSkinGroup.add(tuft);
+                    }
+                } else if (this.skin === 'spiky') {
+                    this.stemMat.color.setHex(0x334155);
+                    this.stemMat.roughness = 0.35;
+                    this.stemMat.metalness = 0.55;
+                    this.capMat.metalness = 0.35;
+                    this.capMat.roughness = 0.25;
+                    this.tipSpike.scale.set(1.45, 1.85, 1.45);
+                    this.tipSpikeMat.color.setHex(0xfef08a);
+
+                    const spikeMat = new THREE.MeshStandardMaterial({
+                        color: 0xe2e8f0,
+                        emissive: this.glowColor,
+                        emissiveIntensity: 0.28,
+                        metalness: 0.85,
+                        roughness: 0.18
+                    });
+                    const goldSpikeMat = new THREE.MeshStandardMaterial({
+                        color: 0xfbbf24,
+                        emissive: 0xd97706,
+                        emissiveIntensity: 0.25,
+                        metalness: 0.8,
+                        roughness: 0.2
+                    });
+
+                    const stemSpikeGeo = new THREE.ConeGeometry(0.065, 0.36, 5);
+                    for (let ring = 0; ring < 5; ring++) {
+                        const zPos = 0.26 + ring * 0.28;
+                        for (let i = 0; i < 6; i++) {
+                            const a = (i / 6) * Math.PI * 2 + ring * 0.52;
+                            const sp = new THREE.Mesh(stemSpikeGeo, (ring + i) % 2 === 0 ? spikeMat : goldSpikeMat);
+                            sp.position.set(Math.cos(a) * 0.19, 0.08 + Math.sin(a) * 0.19, zPos);
+                            sp.rotation.z = a - Math.PI / 2;
+                            this.swordSkinGroup.add(sp);
+                        }
+                    }
+
+                    const bigSpikeGeo = new THREE.ConeGeometry(0.095, 0.48, 6);
+                    for (let i = 0; i < 10; i++) {
+                        const a = (i / 10) * Math.PI * 2;
+                        const sp = new THREE.Mesh(bigSpikeGeo, spikeMat);
+                        sp.position.set(Math.cos(a) * 0.42, 0.14, Math.sin(a) * 0.42);
+                        sp.lookAt(Math.cos(a) * 2, 0.35, Math.sin(a) * 2);
+                        sp.rotateX(Math.PI / 2);
+                        this.capSkinGroup.add(sp);
+                    }
+                    for (let i = 0; i < 6; i++) {
+                        const a = (i / 6) * Math.PI * 2 + 0.3;
+                        const sp = new THREE.Mesh(bigSpikeGeo, goldSpikeMat);
+                        sp.scale.set(0.85, 0.9, 0.85);
+                        sp.position.set(Math.cos(a) * 0.24, 0.38, Math.sin(a) * 0.24);
+                        sp.lookAt(Math.cos(a) * 1.4, 1.15, Math.sin(a) * 1.4);
+                        sp.rotateX(Math.PI / 2);
+                        this.capSkinGroup.add(sp);
+                    }
+                } else if (this.skin === 'water') {
+                    const aquaTint = this.id === 'p1' ? 0x0ea5e9 : 0x06b6d4;
+                    this.stemMat.color.setHex(0xbae6fd);
+                    this.stemMat.transparent = true;
+                    this.stemMat.opacity = 0.72;
+                    this.stemMat.roughness = 0.08;
+                    this.stemMat.metalness = 0.15;
+                    this.stemMat.emissive.setHex(0x0284c7);
+                    this.stemMat.emissiveIntensity = 0.4;
+
+                    this.capMat.color.setHex(aquaTint);
+                    this.capMat.transparent = true;
+                    this.capMat.opacity = 0.75;
+                    this.capMat.roughness = 0.05;
+                    this.capMat.metalness = 0.2;
+                    this.capMat.emissive.setHex(0x38bdf8);
+                    this.capMat.emissiveIntensity = 0.48;
+
+                    this.gillMat.color.setHex(0xe0f2fe);
+                    this.gillMat.transparent = true;
+                    this.gillMat.opacity = 0.7;
+
+                    this.tipSpikeMat.color.setHex(0xe0f2fe);
+                    this.tipSpikeMat.emissive.setHex(0x38bdf8);
+
+                    const coreMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.7 });
+                    const innerCore = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, 1.5, 10), coreMat);
+                    innerCore.rotation.x = Math.PI / 2;
+                    innerCore.position.set(0, 0.08, 0.88);
+                    this.swordSkinGroup.add(innerCore);
+
+                    const ringMat = new THREE.MeshBasicMaterial({
+                        color: 0x7dd3fc,
+                        transparent: true,
+                        opacity: 0.65,
+                        side: THREE.DoubleSide
+                    });
+                    [0.32, 0.92, 1.48].forEach((zPos, idx) => {
+                        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24 + idx * 0.07, 0.032, 8, 20), ringMat);
+                        ring.position.set(0, 0.08, zPos);
+                        this.swordSkinGroup.add(ring);
+                        this.waterRings.push({ mesh: ring, phase: idx * 1.4 });
+                    });
+
+                    const dropGeo = new THREE.SphereGeometry(0.085, 10, 10);
+                    const dropMat = new THREE.MeshStandardMaterial({
+                        color: 0xe0f2fe,
+                        emissive: 0x38bdf8,
+                        emissiveIntensity: 0.65,
+                        transparent: true,
+                        opacity: 0.85,
+                        roughness: 0.05
+                    });
+                    for (let i = 0; i < 10; i++) {
+                        const drop = new THREE.Mesh(dropGeo, dropMat);
+                        drop.scale.set(0.85, 1.35, 0.85);
+                        this.swordSkinGroup.add(drop);
+                        this.waterDroplets.push({
+                            mesh: drop,
+                            radius: 0.32 + (i % 3) * 0.14,
+                            speed: 2.8 + (i % 4) * 0.7,
+                            zBase: 0.35 + (i / 10) * 1.45,
+                            phase: (i / 10) * Math.PI * 2
+                        });
+                    }
+                }
+            }
+
+            resetForRound() {
+                this.x = this.startX;
+                this.z = 0;
+                this.vx = 0;
+                this.vz = 0;
+                this.facing = this.startX < 0 ? Math.PI / 2 : -Math.PI / 2;
+                this.hp = this.maxHp;
+                this.state = 'idle';
+                this.stateTimer = 0;
+                this.stateDuration = 0;
+                this.attackCooldown = 0;
+                this.hasHitThisSwing = false;
+                this.hitFlashTimer = 0;
+                this.giantTimer = 0;
+                this.swordScale = 1.0;
+                this.bodyGroup.rotation.set(0, 0, 0);
+                this.bodyGroup.position.set(0, 0, 0);
+                this.syncTransform();
+            }
+
+            triggerSlash(fromRemote = false) {
+                if (!fromRemote && this.attackCooldown > 0) return;
+                if (!fromRemote && this.state !== 'idle' && this.state !== 'guard') return;
+                this.state = 'slash';
+                this.stateTimer = 0;
+                this.stateDuration = 0.36;
+                this.attackCooldown = 0.40;
+                this.hasHitThisSwing = false;
+                sound.playSwing(false);
+                if (!fromRemote && gameState.mode === 'online' && this === getControlledFighter()) {
+                    sendNetMessage({ type: 'action', action: 'slash' });
+                }
+            }
+
+            triggerThrust(fromRemote = false) {
+                if (!fromRemote && this.attackCooldown > 0) return;
+                if (!fromRemote && this.state !== 'idle' && this.state !== 'guard') return;
+                this.state = 'thrust';
+                this.stateTimer = 0;
+                this.stateDuration = 0.46;
+                this.attackCooldown = 0.58;
+                this.hasHitThisSwing = false;
+                this.vx += Math.sin(this.facing) * 10.5;
+                this.vz += Math.cos(this.facing) * 10.5;
+                sound.playSwing(true);
+                if (!fromRemote && gameState.mode === 'online' && this === getControlledFighter()) {
+                    sendNetMessage({ type: 'action', action: 'thrust' });
+                }
+            }
+
+            triggerUltimate(fromRemote = false) {
+                if (!fromRemote && this.spore < 100) return;
+                if (!fromRemote && (this.state === 'stunned' || this.state === 'ko' || this.state === 'spin')) return;
+
+                this.spore = 0;
+                const skinCfg = SKIN_CONFIGS[this.skin] || SKIN_CONFIGS.classic;
+
+                if (!fromRemote && gameState.mode === 'online' && this === getControlledFighter()) {
+                    sendNetMessage({ type: 'action', action: 'ult' });
+                }
+
+                const executeSpin = () => {
+                    this.state = 'spin';
+                    this.stateTimer = 0;
+                    this.stateDuration = 1.2;
+                    this.attackCooldown = 0.2;
+                    this.spinTickTimer = 0;
+                    sound.playSpin();
+                    spawnCallout(`🌪️ ${skinCfg.ultName}`, this.x, 2.6, this.z, '#f0abfc', '1.45rem');
+                    spawnSporeExplosion(this.x, 1.2, this.z, skinCfg.hitColor || this.glowColor, 24);
+                };
+
+                if (gameState.mode !== 'online' && gameState.cutscenesEnabled && !cutsceneState.active && gameState.phase === 'playing') {
+                    startCutscene('ultimate', this, executeSpin);
+                } else {
+                    executeSpin();
+                }
+            }
+
+            setGuard(active) {
+                if (active) {
+                    if (this.state === 'idle') this.state = 'guard';
+                } else {
+                    if (this.state === 'guard') this.state = 'idle';
+                }
+            }
+
+            getSwordPoints() {
+                this.root.updateMatrixWorld(true);
+                const mid = new THREE.Vector3();
+                const tip = new THREE.Vector3();
+                this.swordMidRef.getWorldPosition(mid);
+                this.swordTipRef.getWorldPosition(tip);
+                return { mid, tip };
+            }
+
+            update(dt, moveX, moveZ, opponent, isRemoteControlled = false) {
+                if (this.attackCooldown > 0) this.attackCooldown -= dt;
+
+                if (this.giantTimer > 0) {
+                    this.giantTimer -= dt;
+                    this.swordScale += (1.85 - this.swordScale) * Math.min(1, dt * 8);
+                    this.capMat.emissive.setHex(0xfbbf24);
+                    this.capMat.emissiveIntensity = 0.55 + Math.sin(gameState.clockTime * 12) * 0.25;
+                } else {
+                    this.swordScale += (1.0 - this.swordScale) * Math.min(1, dt * 6);
+                    if (this.skin === 'water') {
+                        this.capMat.emissive.setHex(0x38bdf8);
+                        this.capMat.emissiveIntensity = 0.45 + Math.sin(gameState.clockTime * 6) * 0.12;
+                    } else {
+                        this.capMat.emissive.setHex(this.glowColor);
+                        this.capMat.emissiveIntensity = 0.22;
+                    }
+                }
+
+                if (this.hitFlashTimer > 0) {
+                    this.hitFlashTimer -= dt;
+                    this.suitMat.emissive.setHex(0xffffff);
+                    this.suitMat.emissiveIntensity = 0.7;
+                } else {
+                    this.suitMat.emissive.setHex(0x000000);
+                    this.suitMat.emissiveIntensity = 0;
+                }
+
+                if (
+                    this.state === 'slash' ||
+                    this.state === 'thrust' ||
+                    this.state === 'spin' ||
+                    this.state === 'stunned'
+                ) {
+                    this.stateTimer += dt;
+                    if (this.stateTimer >= this.stateDuration) {
+                        this.state = 'idle';
+                        this.stateTimer = 0;
+                    }
+                }
+
+                if (isRemoteControlled) {
+                    const rt = netState.remoteTarget;
+                    const prevX = this.x;
+                    const prevZ = this.z;
+                    this.x += (rt.x - this.x) * Math.min(1, dt * 16);
+                    this.z += (rt.z - this.z) * Math.min(1, dt * 16);
+                    this.vx = (this.x - prevX) / Math.max(dt, 0.001);
+                    this.vz = (this.z - prevZ) / Math.max(dt, 0.001);
+
+                    if (this.state !== 'spin' && this.state !== 'ko') {
+                        let diff = rt.facing - this.facing;
+                        while (diff > Math.PI) diff -= Math.PI * 2;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        this.facing += diff * Math.min(1, dt * 16);
+                    }
+                    if (this.state === 'idle' || this.state === 'guard') {
+                        this.state = rt.state === 'guard' ? 'guard' : 'idle';
+                    }
+                } else {
+                    const canMove = this.state === 'idle' || this.state === 'guard' || this.state === 'spin';
+                    if (canMove && gameState.phase === 'playing') {
+                        let speed = 6.0;
+                        if (this.state === 'guard') speed = 3.0;
+                        if (this.state === 'spin') speed = 6.6;
+
+                        const len = Math.hypot(moveX, moveZ);
+                        if (len > 0.01) {
+                            const mag = Math.min(1, len);
+                            const nx = moveX / len;
+                            const nz = moveZ / len;
+                            this.vx += (nx * speed * mag - this.vx) * Math.min(1, dt * 14);
+                            this.vz += (nz * speed * mag - this.vz) * Math.min(1, dt * 14);
+                        } else {
+                            this.vx *= Math.pow(0.0008, dt);
+                            this.vz *= Math.pow(0.0008, dt);
+                        }
+                    } else {
+                        this.vx *= Math.pow(0.015, dt);
+                        this.vz *= Math.pow(0.015, dt);
+                    }
+
+                    this.x += this.vx * dt;
+                    this.z += this.vz * dt;
+
+                    const distFromCenter = Math.hypot(this.x, this.z);
+                    if (distFromCenter > ARENA_RADIUS - 0.65) {
+                        const ratio = (ARENA_RADIUS - 0.65) / distFromCenter;
+                        this.x *= ratio;
+                        this.z *= ratio;
+                    }
+
+                    if (opponent && this.state !== 'ko' && this.state !== 'spin') {
+                        const targetAngle = Math.atan2(opponent.x - this.x, opponent.z - this.z);
+                        let diff = targetAngle - this.facing;
+                        while (diff > Math.PI) diff -= Math.PI * 2;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        this.facing += diff * Math.min(1, dt * 13);
+                    }
+                }
+
+                this.animateBody(dt);
+                this.syncTransform();
+            }
+
+            animateBody(dt) {
+                const t = gameState.clockTime;
+                const moveSpeed = Math.hypot(this.vx, this.vz);
+
+                if (moveSpeed > 0.35 && this.state !== 'ko' && !this.state.startsWith('cutscene_')) {
+                    const walkPhase = t * 13;
+                    this.leftLeg.rotation.x = Math.sin(walkPhase) * 0.55;
+                    this.rightLeg.rotation.x = -Math.sin(walkPhase) * 0.55;
+                    this.bodyGroup.position.y = Math.abs(Math.sin(walkPhase)) * 0.09;
+                } else {
+                    this.leftLeg.rotation.x *= 0.82;
+                    this.rightLeg.rotation.x *= 0.82;
+                    if (this.state !== 'cutscene_victory') {
+                        this.bodyGroup.position.y *= 0.82;
+                    }
+                }
+
+                let hipRotY = 0;
+                let hipZ = 0;
+                let swordPitch = -0.12;
+                let swordStretchZ = 1.0;
+                let bodyTiltX = 0;
+                let bodyRotZ = 0;
+                let trailOpacity = 0;
+
+                if (this.skin === 'water') {
+                    this.waterDroplets.forEach((d) => {
+                        const ang = t * d.speed + d.phase;
+                        d.mesh.position.set(
+                            Math.cos(ang) * d.radius,
+                            0.08 + Math.sin(ang) * d.radius,
+                            d.zBase + Math.sin(t * 4 + d.phase) * 0.14
+                        );
+                        d.mesh.rotation.z = ang;
+                    });
+                    this.waterRings.forEach((r) => {
+                        const pulse = 0.88 + Math.sin(t * 7 + r.phase) * 0.18;
+                        r.mesh.scale.set(pulse, pulse, 1);
+                        r.mesh.rotation.z = t * 2.2 + r.phase;
+                    });
+                    if ((this.state === 'slash' || this.state === 'thrust' || this.state === 'spin') && Math.random() < 0.45) {
+                        const pts = this.getSwordPoints();
+                        spawnSporeExplosion(pts.tip.x, pts.tip.y, pts.tip.z, 0x38bdf8, 1);
+                    }
+                } else if (this.skin === 'furry') {
+                    this.furTufts.forEach((f) => {
+                        f.mesh.rotation.z = f.baseRotZ + Math.sin(t * 10 + f.phase) * 0.08;
+                    });
+                }
+
+                if (this.state === 'cutscene_flex') {
+                    hipRotY = Math.sin(t * 10) * 0.32;
+                    hipZ = 0.16 + Math.sin(t * 8) * 0.1;
+                    swordPitch = -0.28 + Math.sin(t * 9) * 0.09;
+                    swordStretchZ = 1.15 + Math.sin(t * 10) * 0.1;
+                    this.leftArm.rotation.z = 0.95;
+                    this.rightArm.rotation.z = -0.95;
+                    this.leftArm.rotation.x = -0.85;
+                    this.rightArm.rotation.x = -0.85;
+                } else if (this.state === 'cutscene_ult') {
+                    hipZ = 0.22;
+                    bodyTiltX = 0.22;
+                    swordPitch = -0.45;
+                    swordStretchZ = 1.35 + Math.sin(t * 28) * 0.18;
+                    trailOpacity = 0.75;
+                    this.leftArm.rotation.z = 1.35;
+                    this.rightArm.rotation.z = -1.35;
+                } else if (this.state === 'cutscene_victory') {
+                    hipRotY = Math.sin(t * 12) * 0.6;
+                    hipZ = Math.abs(Math.sin(t * 12)) * 0.18;
+                    swordPitch = -0.35 + Math.sin(t * 14) * 0.18;
+                    this.bodyGroup.position.y = Math.abs(Math.sin(t * 9)) * 0.32;
+                    this.leftArm.rotation.z = 2.3 + Math.sin(t * 12) * 0.25;
+                    this.rightArm.rotation.z = -2.3 - Math.sin(t * 12) * 0.25;
+                } else if (this.state === 'idle') {
+                    swordPitch = -0.14 + Math.sin(t * 5 + (this.id === 'p1' ? 0 : 2)) * 0.08;
+                    hipRotY = Math.sin(t * 3) * 0.06;
+                    this.leftArm.rotation.x = 0;
+                    this.rightArm.rotation.x = 0;
+                } else if (this.state === 'slash') {
+                    const p = this.stateTimer / this.stateDuration;
+                    if (p < 0.25) {
+                        const k = p / 0.25;
+                        hipRotY = -1.25 * k;
+                        bodyTiltX = -0.12 * k;
+                    } else if (p < 0.68) {
+                        const k = (p - 0.25) / 0.43;
+                        hipRotY = -1.25 + 2.65 * k;
+                        swordStretchZ = 1.24;
+                        trailOpacity = Math.sin(k * Math.PI) * 0.78;
+                        this.leftArm.rotation.z = 1.1;
+                        this.rightArm.rotation.z = -1.1;
+                    } else {
+                        const k = (p - 0.68) / 0.32;
+                        hipRotY = 1.4 * (1 - k);
+                    }
+                } else if (this.state === 'thrust') {
+                    const p = this.stateTimer / this.stateDuration;
+                    if (p < 0.25) {
+                        const k = p / 0.25;
+                        hipZ = -0.22 * k;
+                        bodyTiltX = -0.22 * k;
+                        swordStretchZ = 0.85;
+                    } else if (p < 0.65) {
+                        const k = (p - 0.25) / 0.40;
+                        hipZ = 0.55 * Math.sin(k * Math.PI * 0.7);
+                        bodyTiltX = 0.26;
+                        swordPitch = -0.02;
+                        swordStretchZ = 1.55;
+                        trailOpacity = 0.5;
+                    } else {
+                        const k = (p - 0.65) / 0.35;
+                        hipZ = 0.35 * (1 - k);
+                        swordStretchZ = 1.55 - 0.55 * k;
+                    }
+                } else if (this.state === 'guard') {
+                    hipRotY = 0.88;
+                    swordPitch = -0.62;
+                    bodyTiltX = -0.1;
+                } else if (this.state === 'spin') {
+                    this.facing += dt * 21;
+                    swordStretchZ = 1.38;
+                    trailOpacity = 0.85;
+                    this.leftArm.rotation.z = 1.45;
+                    this.rightArm.rotation.z = -1.45;
+                } else if (this.state === 'stunned') {
+                    bodyTiltX = -0.45;
+                    bodyRotZ = Math.sin(t * 36) * 0.18;
+                    swordPitch = 0.35;
+                } else if (this.state === 'ko') {
+                    bodyTiltX = -Math.PI / 2;
+                    this.bodyGroup.position.y = 0.35;
+                }
+
+                this.hipPivot.rotation.y = hipRotY;
+                this.hipPivot.position.z = 0.36 + hipZ;
+                this.swordMeshGroup.rotation.x = swordPitch;
+                this.swordMeshGroup.scale.set(
+                    this.swordScale,
+                    this.swordScale,
+                    this.swordScale * swordStretchZ
+                );
+
+                this.bodyGroup.rotation.x = bodyTiltX;
+                this.bodyGroup.rotation.z = bodyRotZ;
+
+                this.slashTrail.material.opacity = trailOpacity;
+                this.slashTrail.scale.setScalar(this.swordScale);
+                if (
+                    this.state !== 'slash' &&
+                    this.state !== 'spin' &&
+                    this.state !== 'cutscene_flex' &&
+                    this.state !== 'cutscene_ult' &&
+                    this.state !== 'cutscene_victory'
+                ) {
+                    this.leftArm.rotation.z = 0.45;
+                    this.rightArm.rotation.z = -0.45;
+                }
+            }
+
+            syncTransform() {
+                this.root.position.set(this.x, 0, this.z);
+                this.root.rotation.y = this.facing;
+            }
+        }
+
+        // ===================== 4. สร้างฉาก 3D =====================
+        function initScene() {
+            const wrapper = document.getElementById('game-canvas-wrapper');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b1026);
+            scene.fog = new THREE.FogExp2(0x0b1026, 0.022);
+
+            camera = new THREE.PerspectiveCamera(48, wrapper.clientWidth / wrapper.clientHeight, 0.1, 120);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            wrapper.insertBefore(renderer.domElement, wrapper.firstChild);
+
+            scene.add(new THREE.HemisphereLight(0xdbeafe, 0x1e1b4b, 0.95));
+
+            const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.2);
+            dirLight.position.set(10, 18, 12);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            dirLight.shadow.camera.near = 2;
+            dirLight.shadow.camera.far = 45;
+            const d = 12;
+            dirLight.shadow.camera.left = -d;
+            dirLight.shadow.camera.right = d;
+            dirLight.shadow.camera.top = d;
+            dirLight.shadow.camera.bottom = -d;
+            scene.add(dirLight);
+
+            const purpleRim = new THREE.PointLight(0xa855f7, 1.35, 28);
+            purpleRim.position.set(-10, 6, -10);
+            scene.add(purpleRim);
+
+            const cyanRim = new THREE.PointLight(0x38bdf8, 1.3, 28);
+            cyanRim.position.set(10, 6, -10);
+            scene.add(cyanRim);
+
+            const arenaMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(ARENA_RADIUS, ARENA_RADIUS + 0.8, 0.9, 48),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.78 })
+            );
+            arenaMesh.position.y = -0.45;
+            arenaMesh.receiveShadow = true;
+            scene.add(arenaMesh);
+
+            const grassDisk = new THREE.Mesh(
+                new THREE.CircleGeometry(ARENA_RADIUS - 0.35, 48),
+                new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 })
+            );
+            grassDisk.rotation.x = -Math.PI / 2;
+            grassDisk.position.y = 0.01;
+            grassDisk.receiveShadow = true;
+            scene.add(grassDisk);
+
+            const borderRing = new THREE.Mesh(
+                new THREE.TorusGeometry(ARENA_RADIUS - 0.25, 0.14, 12, 64),
+                new THREE.MeshStandardMaterial({
+                    color: 0xfbbf24,
+                    emissive: 0xd97706,
+                    emissiveIntensity: 0.55,
+                    roughness: 0.25
+                })
+            );
+            borderRing.rotation.x = Math.PI / 2;
+            borderRing.position.y = 0.04;
+            scene.add(borderRing);
+
+            const centerRing = new THREE.Mesh(
+                new THREE.RingGeometry(1.75, 1.98, 36),
+                new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+            );
+            centerRing.rotation.x = -Math.PI / 2;
+            centerRing.position.y = 0.02;
+            scene.add(centerRing);
+
+            const decoColors = [0xef4444, 0xa855f7, 0x06b6d4, 0xf59e0b, 0xec4899, 0x22c55e];
+            for (let i = 0; i < 14; i++) {
+                const angle = (i / 14) * Math.PI * 2 + 0.15;
+                const dist = ARENA_RADIUS + 2.5 + (i % 3) * 1.6;
+                const scale = 0.85 + (i % 4) * 0.45;
+                const capColor = decoColors[i % decoColors.length];
+
+                const mGroup = new THREE.Group();
+                const stem = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.28 * scale, 0.42 * scale, 2.2 * scale, 10),
+                    new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.7 })
+                );
+                stem.position.y = 1.1 * scale;
+                const cap = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.05 * scale, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
+                    new THREE.MeshStandardMaterial({
+                        color: capColor,
+                        emissive: capColor,
+                        emissiveIntensity: 0.22,
+                        roughness: 0.4
+                    })
+                );
+                cap.position.y = 2.05 * scale;
+                mGroup.add(stem, cap);
+                mGroup.position.set(Math.cos(angle) * dist, -0.2, Math.sin(angle) * dist);
+                mGroup.rotation.z = (Math.random() - 0.5) * 0.18;
+                scene.add(mGroup);
+            }
+
+            const sporeGeo = new THREE.SphereGeometry(0.08, 6, 6);
+            for (let i = 0; i < 32; i++) {
+                const mat = new THREE.MeshBasicMaterial({
+                    color: i % 2 === 0 ? 0xfef08a : 0x67e8f9,
+                    transparent: true,
+                    opacity: 0.65
+                });
+                const sp = new THREE.Mesh(sporeGeo, mat);
+                sp.position.set((Math.random() - 0.5) * 24, 0.8 + Math.random() * 6, (Math.random() - 0.5) * 24);
+                scene.add(sp);
+                ambientSpores.push({
+                    mesh: sp,
+                    baseY: sp.position.y,
+                    speed: 0.8 + Math.random() * 1.4,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+
+            p1 = new MushroomFighter({
+                id: 'p1',
+                name: 'จอมเห็ดแดง',
+                capColor: 0xef4444,
+                suitColor: 0xb91c1c,
+                pantsColor: 0x1e293b,
+                glowColor: 0xff6b6b,
+                startX: -3.8,
+                skin: gameState.p1Skin
+            });
+
+            p2 = new MushroomFighter({
+                id: 'p2',
+                name: 'อัศวินเห็ดฟ้า',
+                capColor: 0x06b6d4,
+                suitColor: 0x1d4ed8,
+                pantsColor: 0x1e1b4b,
+                glowColor: 0x38bdf8,
+                startX: 3.8,
+                skin: gameState.p2Skin
+            });
+        }
+
+        // ===================== 5. อนุภาค ข้อความลอย และเห็ดทองคำ =====================
+        function spawnSporeExplosion(x, y, z, colorHex, count = 14) {
+            const geo = new THREE.SphereGeometry(0.11, 6, 6);
+            for (let i = 0; i < count; i++) {
+                const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(x, y, z);
+                scene.add(mesh);
+
+                const theta = Math.random() * Math.PI * 2;
+                const speed = 2.5 + Math.random() * 5.8;
+                particles.push({
+                    mesh,
+                    vx: Math.cos(theta) * speed,
+                    vy: 2.2 + Math.random() * 4.5,
+                    vz: Math.sin(theta) * speed,
+                    life: 0.45 + Math.random() * 0.35,
+                    maxLife: 0.8
+                });
+            }
+        }
+
+        function updateParticles(dt) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.life -= dt;
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    p.mesh.material.dispose();
+                    particles.splice(i, 1);
+                    continue;
+                }
+                p.vy -= 11.5 * dt;
+                p.mesh.position.x += p.vx * dt;
+                p.mesh.position.y += p.vy * dt;
+                p.mesh.position.z += p.vz * dt;
+                const ratio = Math.max(0, p.life / p.maxLife);
+                p.mesh.scale.setScalar(ratio);
+                p.mesh.material.opacity = ratio;
+            }
+            ambientSpores.forEach((s) => {
+                s.mesh.position.y = s.baseY + Math.sin(gameState.clockTime * s.speed + s.phase) * 0.45;
+            });
+        }
+
+        function spawnCallout(text, worldX, worldY, worldZ, color = '#fde047', fontSize = '1.2rem') {
+            const layer = document.getElementById('callout-layer');
+            if (!layer || !camera) return;
+            const vec = new THREE.Vector3(worldX, worldY, worldZ);
+            vec.project(camera);
+            const x = (vec.x * 0.5 + 0.5) * layer.clientWidth;
+            const y = (-vec.y * 0.5 + 0.5) * layer.clientHeight;
+
+            const el = document.createElement('div');
+            el.className = 'callout-text';
+            el.textContent = text;
+            el.style.left = `${Math.max(60, Math.min(layer.clientWidth - 60, x))}px`;
+            el.style.top = `${Math.max(30, Math.min(layer.clientHeight - 30, y))}px`;
+            el.style.color = color;
+            el.style.fontSize = fontSize;
+            layer.appendChild(el);
+            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1020);
+        }
+
+        function createGoldenMeshAt(gx, gz) {
+            if (goldenMushroom) {
+                scene.remove(goldenMushroom.mesh);
+                goldenMushroom = null;
+            }
+            const group = new THREE.Group();
+            const stem = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.16, 0.22, 0.55, 12),
+                new THREE.MeshStandardMaterial({ color: 0xfef9c3, emissive: 0xfacc15, emissiveIntensity: 0.4 })
+            );
+            stem.position.y = 0.28;
+            const cap = new THREE.Mesh(
+                new THREE.SphereGeometry(0.45, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.6),
+                new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xf59e0b, emissiveIntensity: 0.7, metalness: 0.5, roughness: 0.2 })
+            );
+            cap.position.y = 0.52;
+            const aura = new THREE.Mesh(
+                new THREE.RingGeometry(0.55, 0.72, 24),
+                new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+            );
+            aura.rotation.x = -Math.PI / 2;
+            aura.position.y = 0.05;
+
+            group.add(stem, cap, aura);
+            group.position.set(gx, 0.15, gz);
+            scene.add(group);
+            goldenMushroom = { mesh: group, x: gx, z: gz };
+        }
+
+        function spawnGoldenMushroom() {
+            if (goldenMushroom) return;
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 1.5 + Math.random() * 4.0;
+            const gx = Math.cos(angle) * radius;
+            const gz = Math.sin(angle) * radius;
+            createGoldenMeshAt(gx, gz);
+            spawnSporeExplosion(gx, 0.7, gz, 0xfde047, 16);
+            spawnCallout('✨ เห็ดทองคำปรากฏตัว!', gx, 1.8, gz, '#fde047', '1.15rem');
+        }
+
+        function updateGoldenMushroom(dt) {
+            if (gameState.phase !== 'playing') return;
+            const isGuestOnline = gameState.mode === 'online' && netState.role === 'guest';
+
+            if (!goldenMushroom) {
+                if (!isGuestOnline) {
+                    goldenSpawnTimer -= dt;
+                    if (goldenSpawnTimer <= 0) {
+                        spawnGoldenMushroom();
+                        goldenSpawnTimer = 11 + Math.random() * 5;
+                    }
+                }
+                return;
+            }
+
+            goldenMushroom.mesh.rotation.y += dt * 2.8;
+            goldenMushroom.mesh.position.y = 0.22 + Math.sin(gameState.clockTime * 5) * 0.15;
+            if (isGuestOnline) return;
+
+            [p1, p2].forEach((fighter) => {
+                if (!goldenMushroom || fighter.state === 'ko') return;
+                const d = Math.hypot(fighter.x - goldenMushroom.x, fighter.z - goldenMushroom.z);
+                if (d < 1.35) {
+                    fighter.giantTimer = 7.5;
+                    fighter.spore = Math.min(100, fighter.spore + 25);
+                    sound.playPowerup();
+                    spawnSporeExplosion(goldenMushroom.x, 1.0, goldenMushroom.z, 0xfde047, 24);
+                    spawnCallout('🍄✨ ดาบเห็ดยักษ์!!', fighter.x, 2.5, fighter.z, '#fde047', '1.4rem');
+                    sendHostEvent('🍄✨ ดาบเห็ดยักษ์!!', '#fde047', fighter.x, fighter.z, 'powerup');
+                    scene.remove(goldenMushroom.mesh);
+                    goldenMushroom = null;
+                }
+            });
+        }
+
+        // ===================== 6. ระบบต่อสู้ ปะทะดาบเห็ด และ AI =====================
+        function isAttackActive(fighter) {
+            if (fighter.state === 'slash') {
+                const p = fighter.stateTimer / fighter.stateDuration;
+                return p >= 0.22 && p <= 0.70;
+            }
+            if (fighter.state === 'thrust') {
+                const p = fighter.stateTimer / fighter.stateDuration;
+                return p >= 0.22 && p <= 0.68;
+            }
+            if (fighter.state === 'spin') return true;
+            return false;
+        }
+
+        function resolveCombat(dt) {
+            if (gameState.phase !== 'playing') return;
+
+            const dx = p2.x - p1.x;
+            const dz = p2.z - p1.z;
+            const bodyDist = Math.hypot(dx, dz) || 0.001;
+            const minSep = 1.28;
+            if (bodyDist < minSep) {
+                const push = (minSep - bodyDist) * 0.5;
+                const nx = dx / bodyDist;
+                const nz = dz / bodyDist;
+                p1.x -= nx * push;
+                p1.z -= nz * push;
+                p2.x += nx * push;
+                p2.z += nz * push;
+            }
+
+            if (gameState.mode === 'online' && netState.role === 'guest') return;
+
+            const p1Active = isAttackActive(p1);
+            const p2Active = isAttackActive(p2);
+            const p1Pts = p1.getSwordPoints();
+            const p2Pts = p2.getSwordPoints();
+
+            if (p1Active && p2Active && !p1.hasHitThisSwing && !p2.hasHitThisSwing) {
+                const swordDist = p1Pts.tip.distanceTo(p2Pts.tip);
+                const midDist = p1Pts.mid.distanceTo(p2Pts.mid);
+                if (swordDist < 1.38 * Math.max(p1.swordScale, p2.swordScale) || midDist < 1.18) {
+                    p1.hasHitThisSwing = true;
+                    p2.hasHitThisSwing = true;
+
+                    const nx = dx / bodyDist;
+                    const nz = dz / bodyDist;
+                    p1.vx = -nx * 9.2;
+                    p1.vz = -nz * 9.2;
+                    p2.vx = nx * 9.2;
+                    p2.vz = nz * 9.2;
+
+                    p1.spore = Math.min(100, p1.spore + 16);
+                    p2.spore = Math.min(100, p2.spore + 16);
+
+                    const cx = (p1Pts.tip.x + p2Pts.tip.x) * 0.5;
+                    const cy = (p1Pts.tip.y + p2Pts.tip.y) * 0.5;
+                    const cz = (p1Pts.tip.z + p2Pts.tip.z) * 0.5;
+
+                    sound.playClash();
+                    gameState.hitStopTimer = 0.07;
+                    gameState.cameraShake = 0.32;
+                    spawnSporeExplosion(cx, cy, cz, 0xfef08a, 24);
+                    spawnCallout('💥 เห็ดชนเห็ด!! CLASH!', cx, cy + 0.8, cz, '#fef08a', '1.45rem');
+                    sendHostEvent('💥 เห็ดชนเห็ด!! CLASH!', '#fef08a', cx, cz, 'clash');
+                    return;
+                }
+            }
+
+            checkAttackHit(p1, p2, p1Pts, dt);
+            checkAttackHit(p2, p1, p2Pts, dt);
+        }
+
+        function checkAttackHit(attacker, defender, pts, dt) {
+            if (!isAttackActive(attacker) || defender.state === 'ko') return;
+
+            if (attacker.state === 'spin') {
+                attacker.spinTickTimer -= dt;
+                if (attacker.spinTickTimer > 0) return;
+            } else if (attacker.hasHitThisSwing) {
+                return;
+            }
+
+            const defPos = new THREE.Vector3(defender.x, 1.05, defender.z);
+            const hitRadius = 1.08 * (0.78 + attacker.swordScale * 0.35);
+            const dTip = pts.tip.distanceTo(defPos);
+            const dMid = pts.mid.distanceTo(defPos);
+
+            if (dTip < hitRadius || dMid < hitRadius * 0.92) {
+                if (attacker.state === 'spin') attacker.spinTickTimer = 0.24;
+                else attacker.hasHitThisSwing = true;
+
+                const pushX = defender.x - attacker.x;
+                const pushZ = defender.z - attacker.z;
+                const pLen = Math.hypot(pushX, pushZ) || 1;
+                const nx = pushX / pLen;
+                const nz = pushZ / pLen;
+
+                let baseDmg = 12;
+                let knockback = 7.5;
+                let breaksGuard = false;
+                let calloutWord = 'ฟับ!';
+
+                if (attacker.state === 'thrust') {
+                    baseDmg = 18;
+                    knockback = 12.0;
+                    breaksGuard = true;
+                    calloutWord = 'ทะลวง!';
+                } else if (attacker.state === 'spin') {
+                    baseDmg = 9;
+                    knockback = 6.5;
+                    calloutWord = 'ปั่นเห็ด!';
+                }
+
+                if (attacker.giantTimer > 0) {
+                    baseDmg = Math.round(baseDmg * 1.35);
+                    knockback *= 1.25;
+                }
+
+                if (defender.state === 'guard' && !breaksGuard) {
+                    const chipDmg = Math.max(2, Math.round(baseDmg * 0.22));
+                    defender.hp = Math.max(0, defender.hp - chipDmg);
+                    defender.vx += nx * 5.0;
+                    defender.vz += nz * 5.0;
+                    defender.spore = Math.min(100, defender.spore + 14);
+                    attacker.spore = Math.min(100, attacker.spore + 8);
+
+                    sound.playGuard();
+                    spawnSporeExplosion(defender.x, 1.2, defender.z, 0x38bdf8, 10);
+                    spawnCallout(`🛡️ กันได้! -${chipDmg}`, defender.x, 2.3, defender.z, '#7dd3fc', '1.1rem');
+                    sendHostEvent(`🛡️ กันได้! -${chipDmg}`, '#7dd3fc', defender.x, defender.z, 'guard');
+                } else {
+                    const finalDmg = baseDmg;
+                    defender.hp = Math.max(0, defender.hp - finalDmg);
+                    defender.vx += nx * knockback;
+                    defender.vz += nz * knockback;
+                    defender.hitFlashTimer = 0.16;
+
+                    if (breaksGuard && defender.state === 'guard') {
+                        defender.state = 'stunned';
+                        defender.stateTimer = 0;
+                        defender.stateDuration = 0.65;
+                        calloutWord = '💥 การ์ดแตก!';
+                    } else if (attacker.state !== 'spin') {
+                        defender.state = 'stunned';
+                        defender.stateTimer = 0;
+                        defender.stateDuration = 0.24;
+                    }
+
+                    attacker.spore = Math.min(100, attacker.spore + (attacker.state === 'spin' ? 0 : 18));
+                    defender.spore = Math.min(100, defender.spore + 12);
+
+                    sound.playHit(attacker.state === 'thrust' || attacker.giantTimer > 0);
+                    if (attacker.skin === 'water') sound.playWaterSplash();
+
+                    const skinCfg = SKIN_CONFIGS[attacker.skin] || SKIN_CONFIGS.classic;
+                    const fxColor = skinCfg.hitColor || attacker.glowColor;
+                    const txtColor = attacker.id === 'p1' ? '#fda4af' : '#67e8f9';
+                    spawnSporeExplosion(defender.x, 1.25, defender.z, fxColor, attacker.skin === 'water' ? 24 : 18);
+                    spawnCallout(`${calloutWord} -${finalDmg}`, defender.x, 2.35, defender.z, txtColor, attacker.state === 'thrust' ? '1.4rem' : '1.2rem');
+                    sendHostEvent(`${calloutWord} -${finalDmg}`, txtColor, defender.x, defender.z, 'hit');
+                    gameState.hitStopTimer = attacker.state === 'thrust' ? 0.06 : 0.035;
+                    gameState.cameraShake = attacker.state === 'thrust' ? 0.30 : 0.16;
+                }
+
+                if (defender.hp <= 0) {
+                    defender.state = 'ko';
+                    endRound(attacker);
+                }
+            }
+        }
+
+        function computeAI(ai, target, dt) {
+            let mx = 0;
+            let mz = 0;
+            if (gameState.phase !== 'playing' || ai.state === 'ko' || ai.state === 'stunned') {
+                return { mx: 0, mz: 0 };
+            }
+
+            const diffParams = {
+                easy:   { reaction: 0.48, aggro: 0.40, guardRate: 0.20 },
+                normal: { reaction: 0.28, aggro: 0.65, guardRate: 0.45 },
+                hard:   { reaction: 0.15, aggro: 0.86, guardRate: 0.68 }
+            }[gameState.difficulty] || { reaction: 0.28, aggro: 0.65, guardRate: 0.45 };
+
+            ai.aiThinkTimer -= dt;
+
+            if (goldenMushroom) {
+                const distItem = Math.hypot(goldenMushroom.x - ai.x, goldenMushroom.z - ai.z);
+                if (distItem < 6.2) {
+                    ai.setGuard(false);
+                    return { mx: goldenMushroom.x - ai.x, mz: goldenMushroom.z - ai.z };
+                }
+            }
+
+            const dx = target.x - ai.x;
+            const dz = target.z - ai.z;
+            const dist = Math.hypot(dx, dz) || 1;
+            const idealRange = 2.05 * ai.swordScale;
+
+            if (ai.aiThinkTimer <= 0) {
+                ai.aiThinkTimer = diffParams.reaction * (0.75 + Math.random() * 0.5);
+                if (Math.random() < 0.35) ai.aiStrafeDir *= -1;
+
+                if (ai.spore >= 100 && dist < 4.2 && Math.random() < diffParams.aggro) {
+                    ai.setGuard(false);
+                    ai.triggerUltimate();
+                    return { mx: dx, mz: dz };
+                }
+
+                ai.aiDesiredGuard = target.state === 'slash' && dist < 3.4 && Math.random() < diffParams.guardRate;
+
+                if (!ai.aiDesiredGuard && dist < idealRange + 0.85 && Math.random() < diffParams.aggro) {
+                    if (target.state === 'guard' || Math.random() < 0.32) ai.triggerThrust();
+                    else ai.triggerSlash();
+                }
+            }
+
+            ai.setGuard(ai.aiDesiredGuard);
+
+            if (dist > idealRange + 0.35) {
+                mx = dx; mz = dz;
+            } else if (dist < idealRange - 0.55 && ai.state !== 'spin') {
+                mx = -dx * 0.6 + (-dz * ai.aiStrafeDir) * 0.8;
+                mz = -dz * 0.6 + (dx * ai.aiStrafeDir) * 0.8;
+            } else {
+                mx = -dz * ai.aiStrafeDir;
+                mz = dx * ai.aiStrafeDir;
+            }
+            return { mx, mz };
+        }
+
+        // ===================== 7. ระบบกล้อง 3 แบบ + แปลงทิศเดินตามมุมกล้อง =====================
+        function updateCamera(dt) {
+            const mode = CAMERA_MODES[camControl.modeIndex].id;
+            const myFighter = getControlledFighter();
+            const oppFighter = myFighter === p1 ? p2 : p1;
+
+            const shakeX = gameState.cameraShake > 0 ? (Math.random() - 0.5) * gameState.cameraShake : 0;
+            const shakeY = gameState.cameraShake > 0 ? (Math.random() - 0.5) * gameState.cameraShake : 0;
+            if (gameState.cameraShake > 0) gameState.cameraShake = Math.max(0, gameState.cameraShake - dt * 2.0);
+
+            const targetPos = new THREE.Vector3();
+            const lookTarget = new THREE.Vector3();
+
+            // ในโหมด 2P จอเดียว ใช้มุมมองดวลข้างหรือมุมสูงจะยุติธรรมกับทั้งสองคน
+            const effectiveMode = (gameState.mode === '2p' && mode === 'chase') ? 'side' : mode;
+
+            if (effectiveMode === 'chase') {
+                const angleToOpp = Math.atan2(oppFighter.x - myFighter.x, oppFighter.z - myFighter.z);
+                const camYaw = angleToOpp + Math.PI + camControl.yawOffset;
+                const dist = Math.max(5.2, Math.min(11, 6.8 + camControl.distanceOffset));
+                const height = Math.max(2.2, Math.min(6.0, 3.6 + camControl.pitchOffset * 4));
+
+                targetPos.set(
+                    myFighter.x + Math.sin(camYaw) * dist + shakeX,
+                    height + shakeY,
+                    myFighter.z + Math.cos(camYaw) * dist
+                );
+                lookTarget.set(
+                    myFighter.x * 0.35 + oppFighter.x * 0.65,
+                    1.25,
+                    myFighter.z * 0.35 + oppFighter.z * 0.65
+                );
+                camControl.currentYaw = angleToOpp + Math.PI;
+            } else if (effectiveMode === 'top') {
+                const midX = (p1.x + p2.x) * 0.5;
+                const midZ = (p1.z + p2.z) * 0.5;
+                const sep = Math.hypot(p1.x - p2.x, p1.z - p2.z);
+                const h = Math.max(12.5, 11.5 + sep * 0.6 + camControl.distanceOffset);
+                const yaw = camControl.yawOffset;
+
+                targetPos.set(midX + Math.sin(yaw) * 6.5 + shakeX, h + shakeY, midZ + Math.cos(yaw) * 6.5);
+                lookTarget.set(midX, 0.8, midZ);
+                camControl.currentYaw = yaw;
+            } else {
+                const midX = (p1.x + p2.x) * 0.5;
+                const midZ = (p1.z + p2.z) * 0.5;
+                const sep = Math.hypot(p1.x - p2.x, p1.z - p2.z);
+                const dist = Math.max(9.2, Math.min(18, 10.6 + sep * 0.58 + camControl.distanceOffset));
+                const pitch = Math.max(0.24, Math.min(1.05, 0.52 + camControl.pitchOffset));
+                const yaw = camControl.yawOffset;
+
+                targetPos.set(
+                    midX + Math.sin(yaw) * Math.cos(pitch) * dist + shakeX,
+                    Math.sin(pitch) * dist + 1.5 + shakeY,
+                    midZ + Math.cos(yaw) * Math.cos(pitch) * dist
+                );
+                lookTarget.set(midX, 1.15, midZ);
+                camControl.currentYaw = yaw;
+            }
+
+            camera.position.lerp(targetPos, Math.min(1, dt * 7.5));
+            camera.lookAt(lookTarget);
+        }
+
+        function screenInputToWorldMove(inputX, inputY) {
+            if (Math.abs(inputX) < 0.01 && Math.abs(inputY) < 0.01) return { x: 0, z: 0 };
+            const yaw = camControl.currentYaw;
+            const rightX = Math.cos(yaw);
+            const rightZ = -Math.sin(yaw);
+            const forwardX = -Math.sin(yaw);
+            const forwardZ = -Math.cos(yaw);
+            return {
+                x: rightX * inputX + forwardX * (-inputY),
+                z: rightZ * inputX + forwardZ * (-inputY)
+            };
+        }
+
+        function updateHUD() {
+            document.getElementById('p1-hp-bar').style.width = `${(p1.hp / p1.maxHp) * 100}%`;
+            document.getElementById('p2-hp-bar').style.width = `${(p2.hp / p2.maxHp) * 100}%`;
+            document.getElementById('p1-hp-text').textContent = Math.ceil(p1.hp);
+            document.getElementById('p2-hp-text').textContent = Math.ceil(p2.hp);
+
+            document.getElementById('p1-spore-bar').style.width = `${p1.spore}%`;
+            document.getElementById('p2-spore-bar').style.width = `${p2.spore}%`;
+
+            document.getElementById('p1-wins').textContent = '🏆'.repeat(gameState.p1Wins) + '⚪'.repeat(Math.max(0, 2 - gameState.p1Wins));
+            document.getElementById('p2-wins').textContent = '🏆'.repeat(gameState.p2Wins) + '⚪'.repeat(Math.max(0, 2 - gameState.p2Wins));
+            document.getElementById('round-num').textContent = gameState.round;
+
+            // อัปเดตปุ่มอัลติทั้งโหมดเดี่ยวและโหมด 2P จอเดียว
+            const myF = getControlledFighter();
+            const ultBtn = document.getElementById('touch-ult');
+            document.getElementById('ult-pct').textContent = `${Math.floor(myF.spore)}%`;
+            ultBtn.classList.toggle('ult-ready', myF.spore >= 100);
+
+            const p1UltBtn = document.getElementById('p1-btn-ult');
+            document.getElementById('p1-ult-pct').textContent = `${Math.floor(p1.spore)}%`;
+            p1UltBtn.classList.toggle('ult-ready', p1.spore >= 100);
+
+            const p2UltBtn = document.getElementById('p2-btn-ult');
+            document.getElementById('p2-ult-pct').textContent = `${Math.floor(p2.spore)}%`;
+            p2UltBtn.classList.toggle('ult-ready', p2.spore >= 100);
+        }
+
+        /** สลับเลย์เอาต์แผงปุ่มล่างให้เหมาะกับโหมด 1P/ออนไลน์ หรือ 2P แท็บเล็ตจอเดียว */
+        function updateControlsLayout() {
+            const singleBar = document.getElementById('controls-single');
+            const dualBar = document.getElementById('controls-dual');
+            const quick2pBtn = document.getElementById('btn-quick-2p');
+            const btn1p = document.getElementById('btn-mode-1p');
+            const btn2p = document.getElementById('btn-mode-2p');
+            const diffSel = document.getElementById('select-difficulty');
+            const youInd = document.getElementById('you-indicator');
+
+            if (gameState.mode === '2p') {
+                singleBar.classList.add('hidden');
+                dualBar.classList.remove('hidden');
+                quick2pBtn.classList.add('active-mode');
+                btn2p.classList.add('active-mode');
+                btn1p.classList.remove('active-mode');
+                diffSel.disabled = true;
+                diffSel.style.opacity = '0.45';
+                document.getElementById('p1-label').textContent = '🔴 P1 (ซ้าย)';
+                document.getElementById('p2-label').textContent = 'P2 (ขวา) 🔵';
+                youInd.textContent = '👥 โหมด 2P แท็บเล็ตจอเดียว: 🔴 ซ้าย vs 🔵 ขวา';
+                youInd.className = 'bg-slate-950/75 backdrop-blur-sm border border-cyan-400/50 text-cyan-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full';
+            } else {
+                dualBar.classList.add('hidden');
+                singleBar.classList.remove('hidden');
+                quick2pBtn.classList.remove('active-mode');
+                if (gameState.mode === '1p') {
+                    btn1p.classList.add('active-mode');
+                    btn2p.classList.remove('active-mode');
+                    diffSel.disabled = false;
+                    diffSel.style.opacity = '1';
+                    document.getElementById('p1-label').textContent = '🔴 P1 เห็ดแดง';
+                    document.getElementById('p2-label').textContent = 'บอทเห็ดฟ้า 🔵';
+                    youInd.textContent = 'โหมด 1P: 🔴 คุณ vs 🤖 บอท';
+                    youInd.className = 'bg-slate-950/70 backdrop-blur-sm border border-rose-400/40 text-rose-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full';
+                }
+            }
+            // ปรับขนาดแคนวาส 3D ให้พอดีทันทีหลังเปลี่ยนแผงปุ่ม
+            setTimeout(() => {
+                const wrapper = document.getElementById('game-canvas-wrapper');
+                if (wrapper && renderer && camera) {
+                    camera.aspect = wrapper.clientWidth / wrapper.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
+                }
+            }, 30);
+        }
+
+        // ===================== 8. ระบบคัทซีน 3D และการจบยก =====================
+        function startCutscene(type, actor, onComplete) {
+            cutsceneState.active = true;
+            cutsceneState.type = type;
+            cutsceneState.timer = 0;
+            cutsceneState.actor = actor || p1;
+            cutsceneState.onComplete = onComplete || null;
+            cutsceneState.lastBeat = -1;
+            gameState.phase = 'cutscene';
+
+            const wrapper = document.getElementById('game-canvas-wrapper');
+            const hud = document.getElementById('cutscene-hud');
+            const speedlines = document.getElementById('ult-speedlines');
+            const badge = document.getElementById('cutscene-badge');
+            const skipBtn = document.getElementById('btn-skip-cutscene');
+
+            wrapper.classList.add('cutscene-active');
+            hud.classList.remove('hidden');
+            document.getElementById('banner-overlay').classList.add('opacity-0', 'pointer-events-none');
+
+            if (type === 'intro') {
+                cutsceneState.duration = 4.2;
+                badge.textContent = '🎬 เปิดฉากศึกดาบเห็ด 3D';
+                speedlines.classList.add('hidden');
+                skipBtn.classList.remove('hidden');
+                p1.resetForRound();
+                p2.resetForRound();
+                p1.state = 'cutscene_flex';
+                p2.state = 'idle';
+            } else if (type === 'ultimate') {
+                cutsceneState.duration = 1.25;
+                badge.textContent = '⚡ ท่าไม้ตายอนิเมะ!';
+                speedlines.classList.remove('hidden');
+                skipBtn.classList.add('hidden');
+                actor.state = 'cutscene_ult';
+                const skinCfg = SKIN_CONFIGS[actor.skin] || SKIN_CONFIGS.classic;
+                document.getElementById('cutscene-title').textContent = `${skinCfg.emoji} ${skinCfg.ultName}`;
+                document.getElementById('cutscene-subtitle').textContent = `${actor.name} ปลดปล่อยพลังสปอร์ 100%!!`;
+                sound.playUltCharge();
+                spawnSporeExplosion(actor.x, 1.3, actor.z, skinCfg.hitColor || actor.glowColor, 28);
+            } else if (type === 'victory') {
+                cutsceneState.duration = 2.4;
+                badge.textContent = '🏆 ผู้ชนะประจำแมตช์!';
+                speedlines.classList.add('hidden');
+                skipBtn.classList.remove('hidden');
+                if (actor) {
+                    actor.state = 'cutscene_victory';
+                    const skinCfg = SKIN_CONFIGS[actor.skin] || SKIN_CONFIGS.classic;
+                    document.getElementById('cutscene-title').textContent = `🏆 ${actor.name} คว้าชัย!!`;
+                    document.getElementById('cutscene-subtitle').textContent = `สุดยอดลีลา "${skinCfg.emoji} ${skinCfg.name}" ไร้เทียมทานแห่งป่าเห็ด!`;
+                    sound.playVictory();
+                }
+            }
+        }
+
+        function finishCutscene() {
+            if (!cutsceneState.active) return;
+            const cb = cutsceneState.onComplete;
+            const type = cutsceneState.type;
+            cutsceneState.active = false;
+            cutsceneState.type = null;
+            cutsceneState.onComplete = null;
+
+            document.getElementById('game-canvas-wrapper').classList.remove('cutscene-active');
+            document.getElementById('cutscene-hud').classList.add('hidden');
+            document.getElementById('ult-speedlines').classList.add('hidden');
+
+            if (type === 'intro') { p1.state = 'idle'; p2.state = 'idle'; }
+            if (type === 'ultimate') { gameState.phase = 'playing'; }
+            if (typeof cb === 'function') cb();
+        }
+
+        function updateCutscene(dt) {
+            if (!cutsceneState.active) return;
+            cutsceneState.timer += dt;
+            const t = cutsceneState.timer;
+            const titleEl = document.getElementById('cutscene-title');
+            const subEl = document.getElementById('cutscene-subtitle');
+
+            if (cutsceneState.type === 'intro') {
+                const s1 = SKIN_CONFIGS[p1.skin] || SKIN_CONFIGS.classic;
+                const s2 = SKIN_CONFIGS[p2.skin] || SKIN_CONFIGS.classic;
+
+                if (t < 1.4) {
+                    if (cutsceneState.lastBeat !== 0) {
+                        cutsceneState.lastBeat = 0;
+                        p1.state = 'cutscene_flex';
+                        p2.state = 'idle';
+                        titleEl.textContent = `${s1.emoji} จอมเห็ดแดง (P1) — ${s1.name}`;
+                        subEl.textContent = `"${s1.introLine}"`;
+                        sound.playCutsceneBoom('C2');
+                        spawnSporeExplosion(p1.x + 1.0, 1.1, p1.z, s1.hitColor || p1.glowColor, 14);
+                    }
+                    const p = t / 1.4;
+                    camera.position.set(p1.x + 2.8 - p * 0.6, 1.45 + p * 0.25, p1.z + 3.2 - p * 0.9);
+                    camera.lookAt(p1.x + 0.55, 1.1, p1.z);
+                } else if (t < 2.85) {
+                    if (cutsceneState.lastBeat !== 1) {
+                        cutsceneState.lastBeat = 1;
+                        p1.state = 'idle';
+                        p2.state = 'cutscene_flex';
+                        const p2Label = gameState.mode === '1p' ? 'บอทเห็ดฟ้า (AI)' : 'อัศวินเห็ดฟ้า (P2)';
+                        titleEl.textContent = `${s2.emoji} ${p2Label} — ${s2.name}`;
+                        subEl.textContent = `"${s2.introLine}"`;
+                        sound.playCutsceneBoom('E2');
+                        spawnSporeExplosion(p2.x - 1.0, 1.1, p2.z, s2.hitColor || p2.glowColor, 14);
+                    }
+                    const p = (t - 1.4) / 1.45;
+                    camera.position.set(p2.x - 2.8 + p * 0.6, 1.45 + p * 0.25, p2.z + 3.2 - p * 0.9);
+                    camera.lookAt(p2.x - 0.55, 1.1, p2.z);
+                } else {
+                    if (cutsceneState.lastBeat !== 2) {
+                        cutsceneState.lastBeat = 2;
+                        p1.state = 'cutscene_flex';
+                        p2.state = 'cutscene_flex';
+                        titleEl.textContent = '⚔️ ศึกดาบเห็ด 3D เปิดฉาก!! ⚔️';
+                        subEl.textContent = `${s1.emoji} ${s1.name}  VS  ${s2.emoji} ${s2.name}`;
+                        sound.playClash();
+                        spawnSporeExplosion(0, 1.5, 0, 0xfef08a, 24);
+                    }
+                    const p = Math.min(1, (t - 2.85) / 1.35);
+                    camera.position.set(Math.sin(p * 0.6) * 2.2, 2.2 + p * 2.2, 10.5 + p * 2.0);
+                    camera.lookAt(0, 1.2, 0);
+                }
+            } else if (cutsceneState.type === 'ultimate') {
+                const a = cutsceneState.actor;
+                const angle = a.facing + 0.55 + t * 2.4;
+                const r = 3.4 - Math.min(1, t) * 0.65;
+                camera.position.set(a.x + Math.sin(angle) * r, 1.35 + Math.sin(t * 5) * 0.25, a.z + Math.cos(angle) * r);
+                camera.lookAt(a.x, 1.15, a.z);
+            } else if (cutsceneState.type === 'victory') {
+                const a = cutsceneState.actor;
+                const angle = a.facing + Math.sin(t * 1.4) * 0.75;
+                camera.position.set(a.x + Math.sin(angle) * 4.2, 1.85 + Math.sin(t * 2) * 0.2, a.z + Math.cos(angle) * 4.2);
+                camera.lookAt(a.x, 1.25, a.z);
+                if (Math.random() < 0.35) {
+                    const colors = [0xfde047, 0xf43f5e, 0x38bdf8, 0xa855f7, 0x34d399];
+                    spawnSporeExplosion(
+                        a.x + (Math.random() - 0.5) * 2.5,
+                        2.2 + Math.random(),
+                        a.z + (Math.random() - 0.5) * 2.5,
+                        colors[Math.floor(Math.random() * colors.length)],
+                        4
+                    );
+                }
+            }
+
+            if (t >= cutsceneState.duration) finishCutscene();
+        }
+
+        function startMatch() {
+            sound.init();
+            if (cutsceneState.active) finishCutscene();
+            gameState.round = 1;
+            gameState.p1Wins = 0;
+            gameState.p2Wins = 0;
+            p1.spore = 0;
+            p2.spore = 0;
+
+            if (gameState.mode !== 'online' && gameState.cutscenesEnabled) {
+                startCutscene('intro', p1, () => startRound());
+            } else {
+                startRound();
+            }
+        }
+
+        function startRound() {
+            p1.resetForRound();
+            p2.resetForRound();
+            if (goldenMushroom) {
+                scene.remove(goldenMushroom.mesh);
+                goldenMushroom = null;
+            }
+            goldenSpawnTimer = 5.5;
+            gameState.phase = 'playing';
+
+            document.getElementById('banner-overlay').classList.add('opacity-0', 'pointer-events-none');
+            spawnCallout(`⚔️ ยกที่ ${gameState.round} — เริ่มฟันได้!`, 0, 2.5, 0, '#fde047', '1.55rem');
+            sound.playClash();
+            updateHUD();
+
+            if (gameState.mode === 'online' && netState.role === 'host') {
+                sendNetMessage({
+                    type: 'round_start',
+                    round: gameState.round,
+                    p1Wins: gameState.p1Wins,
+                    p2Wins: gameState.p2Wins
+                });
+            }
+        }
+
+        function showRoundOrMatchBanner(isMatchOver, winnerId) {
+            const overlay = document.getElementById('banner-overlay');
+            const emoji = document.getElementById('banner-emoji');
+            const title = document.getElementById('banner-title');
+            const desc = document.getElementById('banner-desc');
+            const btn = document.getElementById('btn-start-match');
+
+            const isGuest = gameState.mode === 'online' && netState.role === 'guest';
+
+            if (isMatchOver) {
+                gameState.phase = 'match_over';
+                const p1Champ = gameState.p1Wins >= 2;
+                emoji.textContent = p1Champ ? '🏆🍄🔥' : '🏆🍄❄️';
+                title.textContent = p1Champ
+                    ? '🔴 จอมเห็ดแดง (P1) คว้าแชมป์!'
+                    : (gameState.mode === '1p' ? '🔵 บอทเห็ดฟ้า คว้าแชมป์!' : '🔵 อัศวินเห็ดฟ้า (P2) คว้าแชมป์!');
+                desc.textContent = `สกอร์รวม ${gameState.p1Wins} - ${gameState.p2Wins} ยก! สุดยอดศึกดาบเห็ด 3D!`;
+                btn.textContent = isGuest ? '⏳ รอเจ้าห้องเริ่มใหม่...' : '🔄 ดวลแมตช์ใหม่!';
+                btn.disabled = isGuest;
+            } else {
+                const winTxt = winnerId === 'p1'
+                    ? '🔴 จอมเห็ดแดง (P1) ชนะยกนี้!'
+                    : (gameState.mode === '1p' ? '🔵 บอทเห็ดฟ้า ชนะยกนี้!' : '🔵 อัศวินเห็ดฟ้า (P2) ชนะยกนี้!');
+                emoji.textContent = '⚔️🍄✨';
+                title.textContent = winTxt;
+                desc.textContent = `สกอร์ตอนนี้ ${gameState.p1Wins} - ${gameState.p2Wins} (ชนะ 2 ใน 3 ยก)`;
+                btn.textContent = isGuest ? '⏳ รอเจ้าห้องเริ่มยกต่อ...' : `🔥 ลุยยกที่ ${gameState.round} ต่อ!`;
+                btn.disabled = isGuest;
+            }
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function endRound(winner) {
+            if (gameState.phase !== 'playing') return;
+            gameState.phase = 'round_over';
+
+            if (winner.id === 'p1') gameState.p1Wins++;
+            else gameState.p2Wins++;
+
+            sound.playVictory();
+            spawnCallout('💥 K.O.!!', winner.id === 'p1' ? p2.x : p1.x, 2.5, winner.id === 'p1' ? p2.z : p1.z, '#fde047', '2rem');
+            updateHUD();
+
+            const isMatchOver = gameState.p1Wins >= 2 || gameState.p2Wins >= 2;
+            if (!isMatchOver) gameState.round++;
+
+            if (gameState.mode === 'online' && netState.role === 'host') {
+                sendNetMessage({
+                    type: 'round_end',
+                    winnerId: winner.id,
+                    isMatchOver,
+                    round: gameState.round,
+                    p1Wins: gameState.p1Wins,
+                    p2Wins: gameState.p2Wins
+                });
+            }
+
+            setTimeout(() => {
+                if (isMatchOver && gameState.cutscenesEnabled && gameState.mode !== 'online') {
+                    const champ = gameState.p1Wins >= 2 ? p1 : p2;
+                    startCutscene('victory', champ, () => showRoundOrMatchBanner(true, winner.id));
+                } else {
+                    showRoundOrMatchBanner(isMatchOver, winner.id);
+                }
+            }, 900);
+        }
+
+        // ===================== 9. ระบบออนไลน์ข้ามเครื่องด้วย PeerJS (WebRTC P2P ไม่ต้องตั้งค่าเซิร์ฟเวอร์) =====================
+        function setOnlineStatus(msg, colorClass = 'text-sky-300') {
+            const el = document.getElementById('online-conn-status');
+            if (el) {
+                el.textContent = msg;
+                el.className = `font-bold ${colorClass}`;
+            }
+        }
+
+        function sendNetMessage(payload) {
+            if (netState.conn && netState.conn.open) {
+                try { netState.conn.send(payload); } catch (e) {}
+            }
+        }
+
+        function sendHostEvent(text, color, x, z, soundType) {
+            if (gameState.mode !== 'online' || netState.role !== 'host') return;
+            sendNetMessage({ type: 'event', text, color, x, z, soundType });
+        }
+
+        function createP2PRoom() {
+            if (typeof Peer === 'undefined') {
+                showToast('ไม่สามารถโหลดระบบออนไลน์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', 'error');
+                return;
+            }
+            cleanupP2P(false);
+
+            const code = String(Math.floor(1000 + Math.random() * 9000));
+            setOnlineStatus('⏳ กำลังสร้างห้องออนไลน์...', 'text-amber-300');
+
+            try {
+                const peer = new Peer(PEER_PREFIX + code, { debug: 0 });
+                netState.peer = peer;
+                netState.roomCode = code;
+                netState.role = 'host';
+
+                peer.on('open', () => {
+                    enterOnlineUI(code, 'host');
+                    setOnlineStatus(`🟢 สร้างห้อง ${code} สำเร็จ! บอกเลข 4 หลักนี้ให้เพื่อนเลย`, 'text-emerald-300');
+                    showToast(`สร้างห้อง ${code} สำเร็จ!`, 'success');
+                });
+
+                peer.on('connection', (conn) => {
+                    if (netState.conn && netState.conn.open) {
+                        conn.close();
+                        return;
+                    }
+                    setupP2PConnection(conn);
+                });
+
+                peer.on('error', (err) => {
+                    console.warn('Peer host error:', err);
+                    setOnlineStatus('⚠️ สร้างห้องไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'text-rose-300');
+                    showToast('เชื่อมต่อออนไลน์ไม่สำเร็จ (อาจถูกบล็อกเครือข่าย) ลองใช้โหมด 2P จอเดียวได้เลย!', 'error');
+                });
+            } catch (e) {
+                showToast('สร้างห้องไม่สำเร็จ', 'error');
+            }
+        }
+
+        function joinP2PRoom(rawCode) {
+            if (typeof Peer === 'undefined') {
+                showToast('ไม่สามารถโหลดระบบออนไลน์ได้', 'error');
+                return;
+            }
+            const code = (rawCode || '').replace(/\D/g, '').slice(0, 4);
+            if (code.length !== 4) {
+                showToast('กรุณาใส่รหัสห้องตัวเลข 4 หลัก', 'error');
+                return;
+            }
+            cleanupP2P(false);
+            setOnlineStatus(`⏳ กำลังเชื่อมต่อไปที่ห้อง ${code}...`, 'text-amber-300');
+
+            try {
+                const peer = new Peer(undefined, { debug: 0 });
+                netState.peer = peer;
+                netState.roomCode = code;
+                netState.role = 'guest';
+
+                peer.on('open', () => {
+                    const conn = peer.connect(PEER_PREFIX + code, { reliable: true });
+                    setupP2PConnection(conn);
+                });
+
+                peer.on('error', (err) => {
+                    console.warn('Peer guest error:', err);
+                    setOnlineStatus(`⚠️ ไม่พบห้อง ${code} หรือเจ้าห้องปิดไปแล้ว`, 'text-rose-300');
+                    showToast(`ไม่พบห้อง ${code} กรุณาเช็กเลข 4 หลักกับเพื่อน`, 'error');
+                });
+            } catch (e) {
+                showToast('เข้าห้องไม่สำเร็จ', 'error');
+            }
+        }
+
+        function setupP2PConnection(conn) {
+            netState.conn = conn;
+
+            conn.on('open', () => {
+                netState.connected = true;
+                enterOnlineUI(netState.roomCode, netState.role);
+                setOnlineStatus(`🟢 เชื่อมต่อกับเพื่อนในห้อง ${netState.roomCode} สำเร็จ!`, 'text-emerald-300');
+                showToast('เชื่อมต่อกับเพื่อนสำเร็จ! พร้อมดวลแล้ว!', 'success');
+
+                const guestEl = document.getElementById('room-guest-status');
+                guestEl.textContent = '🟢 เข้าห้องแล้ว พร้อมดวล!';
+                guestEl.className = 'text-[11px] text-emerald-300 font-bold mt-1';
+
+                const startBtn = document.getElementById('btn-start-online-match');
+                if (netState.role === 'host') {
+                    startBtn.disabled = false;
+                    startBtn.textContent = '⚔️ เริ่มดวลออนไลน์!';
+                } else {
+                    startBtn.disabled = true;
+                    startBtn.textContent = '⏳ รอเจ้าห้องกดเริ่ม...';
+                }
+
+                // ส่งสกินของตัวเองให้อีกฝั่งเห็นทันที
+                sendNetMessage({
+                    type: 'skin',
+                    player: netState.role === 'host' ? 'p1' : 'p2',
+                    skin: netState.role === 'host' ? gameState.p1Skin : gameState.p2Skin
+                });
+            });
+
+            conn.on('data', (msg) => {
+                handleNetMessage(msg);
+            });
+
+            conn.on('close', () => {
+                showToast('เพื่อนออกจากห้องแล้ว', 'info');
+                if (netState.role === 'host') {
+                    netState.connected = false;
+                    netState.conn = null;
+                    document.getElementById('room-guest-status').textContent = '⏳ เพื่อนออกไปแล้ว รอคนใหม่...';
+                    document.getElementById('btn-start-online-match').disabled = true;
+                } else {
+                    cleanupP2P(true);
+                }
+            });
+        }
+
+        function handleNetMessage(msg) {
+            if (!msg || !msg.type) return;
+
+            if (msg.type === 'skin') {
+                if (msg.player === 'p1') {
+                    gameState.p1Skin = msg.skin;
+                    p1.applySkin(msg.skin);
+                    syncSkinButtonsUI('p1', msg.skin);
+                } else if (msg.player === 'p2') {
+                    gameState.p2Skin = msg.skin;
+                    p2.applySkin(msg.skin);
+                    syncSkinButtonsUI('p2', msg.skin);
+                }
+            } else if (msg.type === 'action') {
+                const remoteFighter = netState.role === 'host' ? p2 : p1;
+                if (msg.action === 'slash') remoteFighter.triggerSlash(true);
+                else if (msg.action === 'thrust') remoteFighter.triggerThrust(true);
+                else if (msg.action === 'ult') remoteFighter.triggerUltimate(true);
+            } else if (msg.type === 'guest_pose' && netState.role === 'host') {
+                netState.remoteTarget.x = msg.x;
+                netState.remoteTarget.z = msg.z;
+                netState.remoteTarget.facing = msg.facing;
+                netState.remoteTarget.state = msg.state;
+            } else if (msg.type === 'host_state' && netState.role === 'guest') {
+                netState.remoteTarget.x = msg.p1x;
+                netState.remoteTarget.z = msg.p1z;
+                netState.remoteTarget.facing = msg.p1f;
+                netState.remoteTarget.state = msg.p1s;
+
+                p1.hp = msg.p1Hp;
+                p2.hp = msg.p2Hp;
+                p1.spore = msg.p1Spore;
+                p2.spore = msg.p2Spore;
+                p1.giantTimer = msg.p1Giant;
+                p2.giantTimer = msg.p2Giant;
+                gameState.round = msg.round;
+                gameState.p1Wins = msg.p1Wins;
+                gameState.p2Wins = msg.p2Wins;
+
+                if (msg.gActive) {
+                    if (!goldenMushroom || Math.hypot(goldenMushroom.x - msg.gx, goldenMushroom.z - msg.gz) > 0.4) {
+                        createGoldenMeshAt(msg.gx, msg.gz);
+                    }
+                } else if (goldenMushroom) {
+                    scene.remove(goldenMushroom.mesh);
+                    goldenMushroom = null;
+                }
+            } else if (msg.type === 'event' && netState.role === 'guest') {
+                spawnCallout(msg.text, msg.x, 2.35, msg.z, msg.color, '1.3rem');
+                spawnSporeExplosion(msg.x, 1.2, msg.z, 0xfef08a, 14);
+                if (msg.soundType === 'hit') sound.playHit(false);
+                else if (msg.soundType === 'clash') sound.playClash();
+                else if (msg.soundType === 'guard') sound.playGuard();
+                else if (msg.soundType === 'powerup') sound.playPowerup();
+            } else if (msg.type === 'round_start' && netState.role === 'guest') {
+                document.getElementById('modal-online').classList.add('hidden');
+                gameState.round = msg.round;
+                gameState.p1Wins = msg.p1Wins;
+                gameState.p2Wins = msg.p2Wins;
+                p1.resetForRound();
+                p2.resetForRound();
+                if (goldenMushroom) { scene.remove(goldenMushroom.mesh); goldenMushroom = null; }
+                gameState.phase = 'playing';
+                document.getElementById('banner-overlay').classList.add('opacity-0', 'pointer-events-none');
+                sound.playClash();
+                spawnCallout(`⚔️ ยกที่ ${gameState.round} — เริ่มฟันได้!`, 0, 2.5, 0, '#fde047', '1.55rem');
+                updateHUD();
+            } else if (msg.type === 'round_end' && netState.role === 'guest') {
+                gameState.round = msg.round;
+                gameState.p1Wins = msg.p1Wins;
+                gameState.p2Wins = msg.p2Wins;
+                gameState.phase = msg.isMatchOver ? 'match_over' : 'round_over';
+                if (p1.hp <= 0) p1.state = 'ko';
+                if (p2.hp <= 0) p2.state = 'ko';
+                sound.playVictory();
+                updateHUD();
+                showRoundOrMatchBanner(msg.isMatchOver, msg.winnerId);
+            }
+        }
+
+        function syncP2PFrame() {
+            if (gameState.mode !== 'online' || !netState.connected) return;
+            const now = performance.now();
+            if (now - netState.lastSyncTime < 45) return; // ส่งลื่นๆ ~22 ครั้ง/วินาที
+            netState.lastSyncTime = now;
+
+            if (netState.role === 'host') {
+                sendNetMessage({
+                    type: 'host_state',
+                    p1x: Number(p1.x.toFixed(2)),
+                    p1z: Number(p1.z.toFixed(2)),
+                    p1f: Number(p1.facing.toFixed(2)),
+                    p1s: p1.state,
+                    p1Hp: Math.round(p1.hp),
+                    p2Hp: Math.round(p2.hp),
+                    p1Spore: Math.round(p1.spore),
+                    p2Spore: Math.round(p2.spore),
+                    p1Giant: Number(p1.giantTimer.toFixed(1)),
+                    p2Giant: Number(p2.giantTimer.toFixed(1)),
+                    round: gameState.round,
+                    p1Wins: gameState.p1Wins,
+                    p2Wins: gameState.p2Wins,
+                    gActive: Boolean(goldenMushroom),
+                    gx: goldenMushroom ? Number(goldenMushroom.x.toFixed(2)) : 0,
+                    gz: goldenMushroom ? Number(goldenMushroom.z.toFixed(2)) : 0
+                });
+            } else {
+                sendNetMessage({
+                    type: 'guest_pose',
+                    x: Number(p2.x.toFixed(2)),
+                    z: Number(p2.z.toFixed(2)),
+                    facing: Number(p2.facing.toFixed(2)),
+                    state: p2.state
+                });
+            }
+        }
+
+        function enterOnlineUI(code, role) {
+            gameState.mode = 'online';
+            updateControlsLayout();
+
+            const statusPill = document.getElementById('online-status-pill');
+            statusPill.textContent = `🌐 ห้อง ${code} (${role === 'host' ? 'P1' : 'P2'})`;
+            statusPill.classList.remove('hidden');
+
+            document.getElementById('online-lobby-view').classList.add('hidden');
+            document.getElementById('online-room-view').classList.remove('hidden');
+            document.getElementById('room-code-display').textContent = code;
+            document.getElementById('room-role-badge').textContent = role === 'host'
+                ? 'คุณคือ 🔴 เจ้าห้อง (P1) — รอเพื่อนกรอกรหัสนี้แล้วกดเริ่มดวล!'
+                : 'คุณคือ 🔵 ผู้ท้าดวล (P2) — รอเจ้าห้องกดเริ่มดวล!';
+
+            const youInd = document.getElementById('you-indicator');
+            if (role === 'host') {
+                youInd.textContent = `🌐 ออนไลน์ห้อง ${code}: คุณคือ 🔴 P1`;
+                youInd.className = 'bg-slate-950/75 backdrop-blur-sm border border-rose-400/50 text-rose-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full';
+                document.getElementById('p1-label').textContent = '🔴 คุณ (P1)';
+                document.getElementById('p2-label').textContent = 'เพื่อน (P2) 🔵';
+            } else {
+                youInd.textContent = `🌐 ออนไลน์ห้อง ${code}: คุณคือ 🔵 P2`;
+                youInd.className = 'bg-slate-950/75 backdrop-blur-sm border border-cyan-400/50 text-cyan-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full';
+                document.getElementById('p1-label').textContent = '🔴 เพื่อน (P1)';
+                document.getElementById('p2-label').textContent = 'คุณ (P2) 🔵';
+            }
+        }
+
+        function cleanupP2P(resetTo1P = true) {
+            if (netState.conn) {
+                try { netState.conn.close(); } catch (e) {}
+                netState.conn = null;
+            }
+            if (netState.peer) {
+                try { netState.peer.destroy(); } catch (e) {}
+                netState.peer = null;
+            }
+            netState.connected = false;
+            netState.roomCode = null;
+            netState.role = null;
+
+            document.getElementById('online-status-pill').classList.add('hidden');
+            document.getElementById('online-room-view').classList.add('hidden');
+            document.getElementById('online-lobby-view').classList.remove('hidden');
+            document.getElementById('room-guest-status').textContent = '⏳ รอเพื่อนกรอกรหัส...';
+            document.getElementById('btn-start-online-match').disabled = true;
+            document.getElementById('btn-start-match').disabled = false;
+
+            if (resetTo1P) {
+                gameState.mode = '1p';
+                updateControlsLayout();
+            }
+        }
+
+        // ===================== 10. ลูปหลักของเกม (Game Loop) =====================
+        function animate(timestamp) {
+            requestAnimationFrame(animate);
+
+            const dtRaw = lastFrameTime ? (timestamp - lastFrameTime) / 1000 : 0.016;
+            lastFrameTime = timestamp;
+            const dt = Math.min(0.05, Math.max(0.001, dtRaw));
+            gameState.clockTime += dt;
+
+            if (gameState.hitStopTimer > 0) {
+                gameState.hitStopTimer -= dt;
+                renderer.render(scene, camera);
+                return;
+            }
+
+            let p1MoveX = 0, p1MoveZ = 0;
+            let p2MoveX = 0, p2MoveZ = 0;
+            let p1Remote = false, p2Remote = false;
+
+            if (gameState.phase === 'playing') {
+                if (gameState.mode === 'online') {
+                    let inX = joySingle.x;
+                    let inY = joySingle.y;
+                    if (keys['KeyA']) inX -= 1;
+                    if (keys['KeyD']) inX += 1;
+                    if (keys['KeyW']) inY -= 1;
+                    if (keys['KeyS']) inY += 1;
+                    const worldM = screenInputToWorldMove(inX, inY);
+                    const g = Boolean(keys['KeyH'] || keys['ShiftLeft'] || touchGuard.single);
+
+                    if (netState.role === 'host') {
+                        p1MoveX = worldM.x; p1MoveZ = worldM.z;
+                        p1.setGuard(g);
+                        p2Remote = true;
+                    } else {
+                        p2MoveX = worldM.x; p2MoveZ = worldM.z;
+                        p2.setGuard(g);
+                        p1Remote = true;
+                    }
+                    syncP2PFrame();
+                } else if (gameState.mode === '2p') {
+                    // โหมด 2P แท็บเล็ตจอเดียว (Multi-Touch 2 จอย + คีย์บอร์ดเสริม)
+                    let p1InX = joyP1.x;
+                    let p1InY = joyP1.y;
+                    if (keys['KeyA']) p1InX -= 1;
+                    if (keys['KeyD']) p1InX += 1;
+                    if (keys['KeyW']) p1InY -= 1;
+                    if (keys['KeyS']) p1InY += 1;
+                    const w1 = screenInputToWorldMove(p1InX, p1InY);
+                    p1MoveX = w1.x; p1MoveZ = w1.z;
+                    p1.setGuard(Boolean(keys['KeyH'] || keys['ShiftLeft'] || touchGuard.p1));
+
+                    let p2InX = joyP2.x;
+                    let p2InY = joyP2.y;
+                    if (keys['ArrowLeft']) p2InX -= 1;
+                    if (keys['ArrowRight']) p2InX += 1;
+                    if (keys['ArrowUp']) p2InY -= 1;
+                    if (keys['ArrowDown']) p2InY += 1;
+                    const w2 = screenInputToWorldMove(p2InX, p2InY);
+                    p2MoveX = w2.x; p2MoveZ = w2.z;
+                    p2.setGuard(Boolean(keys['Semicolon'] || keys['Numpad3'] || touchGuard.p2));
+                } else {
+                    let inX = joySingle.x;
+                    let inY = joySingle.y;
+                    if (keys['KeyA']) inX -= 1;
+                    if (keys['KeyD']) inX += 1;
+                    if (keys['KeyW']) inY -= 1;
+                    if (keys['KeyS']) inY += 1;
+                    const worldM = screenInputToWorldMove(inX, inY);
+                    p1MoveX = worldM.x; p1MoveZ = worldM.z;
+                    p1.setGuard(Boolean(keys['KeyH'] || keys['ShiftLeft'] || touchGuard.single));
+
+                    const aiMove = computeAI(p2, p1, dt);
+                    p2MoveX = aiMove.mx; p2MoveZ = aiMove.mz;
+                }
+            }
+
+            p1.update(dt, p1MoveX, p1MoveZ, p2, p1Remote);
+            p2.update(dt, p2MoveX, p2MoveZ, p1, p2Remote);
+            updateParticles(dt);
+            updateGoldenMushroom(dt);
+
+            if (cutsceneState.active) {
+                updateCutscene(dt);
+                updateHUD();
+            } else {
+                resolveCombat(dt);
+                updateHUD();
+                updateCamera(dt);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // ===================== 11. ผูกจอยอนาล็อก Multi-Touch ปุ่ม และโมดอล =====================
+        function syncSkinButtonsUI(playerKey, skinId) {
+            document.querySelectorAll(`.skin-btn[data-player="${playerKey}"]`).forEach((b) => {
+                b.classList.remove('selected-p1', 'selected-p2');
+                if (b.getAttribute('data-skin') === skinId) {
+                    b.classList.add(playerKey === 'p1' ? 'selected-p1' : 'selected-p2');
+                }
+            });
+        }
+
+        /** ตัวช่วยสร้างจอยอนาล็อก 360° ที่รองรับ Multi-Touch แยก Pointer ID อิสระ */
+        function bindAnalogJoystick(zoneId, knobId, outputObj) {
+            const zone = document.getElementById(zoneId);
+            const knob = document.getElementById(knobId);
+            let activeId = null;
+
+            const updateStick = (clientX, clientY) => {
+                const rect = zone.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const maxR = rect.width * 0.38;
+
+                let dx = clientX - cx;
+                let dy = clientY - cy;
+                const dist = Math.hypot(dx, dy);
+                if (dist > maxR) {
+                    dx = (dx / dist) * maxR;
+                    dy = (dy / dist) * maxR;
+                }
+                knob.style.transform = `translate(${dx}px, ${dy}px)`;
+                outputObj.x = dx / maxR;
+                outputObj.y = dy / maxR;
+            };
+
+            const resetStick = () => {
+                activeId = null;
+                outputObj.x = 0;
+                outputObj.y = 0;
+                knob.style.transform = 'translate(0px, 0px)';
+            };
+
+            zone.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                if (activeId !== null) return;
+                sound.init();
+                activeId = e.pointerId;
+                zone.setPointerCapture(e.pointerId);
+                updateStick(e.clientX, e.clientY);
+            });
+
+            zone.addEventListener('pointermove', (e) => {
+                if (e.pointerId !== activeId) return;
+                e.preventDefault();
+                updateStick(e.clientX, e.clientY);
+            });
+
+            zone.addEventListener('pointerup', (e) => {
+                if (e.pointerId === activeId) resetStick();
+            });
+            zone.addEventListener('pointercancel', (e) => {
+                if (e.pointerId === activeId) resetStick();
+            });
+        }
+
+        function bindActionTap(id, fn) {
+            const el = document.getElementById(id);
+            el.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                sound.init();
+                el.classList.add('pressed');
+                if (gameState.phase === 'playing') fn();
+            });
+            const clear = () => el.classList.remove('pressed');
+            el.addEventListener('pointerup', clear);
+            el.addEventListener('pointerleave', clear);
+            el.addEventListener('pointercancel', clear);
+        }
+
+        function bindGuardHold(id, guardKey) {
+            const el = document.getElementById(id);
+            el.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                sound.init();
+                touchGuard[guardKey] = true;
+                el.classList.add('pressed');
+            });
+            const clear = () => {
+                touchGuard[guardKey] = false;
+                el.classList.remove('pressed');
+            };
+            el.addEventListener('pointerup', clear);
+            el.addEventListener('pointerleave', clear);
+            el.addEventListener('pointercancel', clear);
+        }
+
+        function switchTo2PTabletMode() {
+            if (gameState.mode === 'online') cleanupP2P(false);
+            gameState.mode = '2p';
+            // ปรับมุมกล้องเป็น "ดวลข้าง" เพื่อให้นักสู้ทั้ง 2 คนเห็นชัดเท่ากัน
+            camControl.modeIndex = 0;
+            camControl.yawOffset = 0;
+            camControl.pitchOffset = 0;
+            document.getElementById('btn-cycle-cam').textContent = CAMERA_MODES[0].label;
+            updateControlsLayout();
+            showToast('👥 โหมด 2P แท็บเล็ตจอเดียว! ซ้าย 🔴 P1 • ขวา 🔵 P2', 'success');
+            startMatch();
+        }
+
+        function switchTo1PMode() {
+            if (gameState.mode === 'online') cleanupP2P(false);
+            gameState.mode = '1p';
+            updateControlsLayout();
+            startMatch();
+        }
+
+        function bindControls() {
+            // ผูกจอยทั้ง 3 ตัว (1P/Online, P1 ฝั่งซ้าย, P2 ฝั่งขวา)
+            bindAnalogJoystick('joystick-single-zone', 'joystick-single-knob', joySingle);
+            bindAnalogJoystick('joystick-p1-zone', 'joystick-p1-knob', joyP1);
+            bindAnalogJoystick('joystick-p2-zone', 'joystick-p2-knob', joyP2);
+
+            // ปุ่มโหมด 1P / Online
+            bindActionTap('touch-slash', () => getControlledFighter().triggerSlash());
+            bindActionTap('touch-thrust', () => getControlledFighter().triggerThrust());
+            bindActionTap('touch-ult', () => getControlledFighter().triggerUltimate());
+            bindGuardHold('touch-guard', 'single');
+
+            // ปุ่มโหมด 2P แท็บเล็ตจอเดียว (P1 ซ้าย)
+            bindActionTap('p1-btn-slash', () => p1.triggerSlash());
+            bindActionTap('p1-btn-thrust', () => p1.triggerThrust());
+            bindActionTap('p1-btn-ult', () => p1.triggerUltimate());
+            bindGuardHold('p1-btn-guard', 'p1');
+
+            // ปุ่มโหมด 2P แท็บเล็ตจอเดียว (P2 ขวา)
+            bindActionTap('p2-btn-slash', () => p2.triggerSlash());
+            bindActionTap('p2-btn-thrust', () => p2.triggerThrust());
+            bindActionTap('p2-btn-ult', () => p2.triggerUltimate());
+            bindGuardHold('p2-btn-guard', 'p2');
+
+            // คีย์บอร์ด
+            window.addEventListener('keydown', (e) => {
+                if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+                if (e.repeat) return;
+                keys[e.code] = true;
+
+                if (cutsceneState.active && cutsceneState.type !== 'ultimate' && (e.code === 'Space' || e.code === 'Enter')) {
+                    finishCutscene();
+                    return;
+                }
+                if (gameState.phase !== 'playing') return;
+                sound.init();
+
+                const myF = getControlledFighter();
+                if (e.code === 'KeyF' || e.code === 'Space') myF.triggerSlash();
+                if (e.code === 'KeyG' || e.code === 'KeyE') myF.triggerThrust();
+                if (e.code === 'KeyQ' || e.code === 'KeyR') myF.triggerUltimate();
+
+                if (gameState.mode === '2p') {
+                    if (e.code === 'KeyK' || e.code === 'Numpad1') p2.triggerSlash();
+                    if (e.code === 'KeyL' || e.code === 'Numpad2') p2.triggerThrust();
+                    if (e.code === 'KeyO' || e.code === 'Numpad0') p2.triggerUltimate();
+                }
+            });
+            window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+            // ปุ่มสลับมุมกล้อง 3 แบบ
+            const btnCam = document.getElementById('btn-cycle-cam');
+            btnCam.addEventListener('click', () => {
+                camControl.modeIndex = (camControl.modeIndex + 1) % CAMERA_MODES.length;
+                camControl.yawOffset = 0;
+                camControl.pitchOffset = 0;
+                camControl.distanceOffset = 0;
+                const m = CAMERA_MODES[camControl.modeIndex];
+                btnCam.textContent = m.label;
+                showToast(`${m.label} — ${m.desc}`, 'info');
+            });
+
+            // ปุ่มลัด 2P จอเดียว บนแถบหัวและบนแบนเนอร์
+            document.getElementById('btn-quick-2p').addEventListener('click', () => {
+                if (gameState.mode === '2p') {
+                    switchTo1PMode();
+                    showToast('🤖 กลับสู่โหมด 1P สู้บอท', 'info');
+                } else {
+                    switchTo2PTabletMode();
+                }
+            });
+            document.getElementById('btn-banner-2p').addEventListener('click', switchTo2PTabletMode);
+
+            // โมดอลสกิน & ตั้งค่า
+            const modalSettings = document.getElementById('modal-settings');
+            document.getElementById('btn-open-settings').addEventListener('click', () => modalSettings.classList.remove('hidden'));
+            document.getElementById('btn-close-settings').addEventListener('click', () => modalSettings.classList.add('hidden'));
+
+            document.getElementById('btn-mode-1p').addEventListener('click', () => {
+                modalSettings.classList.add('hidden');
+                switchTo1PMode();
+            });
+            document.getElementById('btn-mode-2p').addEventListener('click', () => {
+                modalSettings.classList.add('hidden');
+                switchTo2PTabletMode();
+            });
+            document.getElementById('select-difficulty').addEventListener('change', (e) => {
+                gameState.difficulty = e.target.value;
+            });
+
+            // โมดอลออนไลน์ P2P
+            const modalOnline = document.getElementById('modal-online');
+            const openOnline = () => modalOnline.classList.remove('hidden');
+            document.getElementById('btn-open-online').addEventListener('click', openOnline);
+            document.getElementById('btn-banner-online').addEventListener('click', openOnline);
+            document.getElementById('btn-close-online').addEventListener('click', () => modalOnline.classList.add('hidden'));
+
+            document.getElementById('btn-create-room').addEventListener('click', () => { sound.init(); createP2PRoom(); });
+            document.getElementById('btn-join-room').addEventListener('click', () => {
+                sound.init();
+                joinP2PRoom(document.getElementById('input-room-code').value);
+            });
+            document.getElementById('btn-copy-room-code').addEventListener('click', () => {
+                if (netState.roomCode) copyTextSafe(netState.roomCode, `คัดลอกรหัสห้อง ${netState.roomCode} แล้ว!`);
+            });
+            document.getElementById('btn-leave-room').addEventListener('click', () => {
+                cleanupP2P(true);
+                showToast('ออกจากห้องออนไลน์แล้ว', 'info');
+            });
+            document.getElementById('btn-start-online-match').addEventListener('click', () => {
+                if (netState.role !== 'host' || !netState.connected) return;
+                modalOnline.classList.add('hidden');
+                startMatch();
+            });
+
+            // ปุ่มเริ่มดวล / รีสตาร์ท
+            document.getElementById('btn-start-match').addEventListener('click', () => {
+                sound.init();
+                if (gameState.mode === 'online' && netState.role === 'guest') return;
+                if (gameState.phase === 'round_over') startRound();
+                else startMatch();
+            });
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                modalSettings.classList.add('hidden');
+                if (gameState.mode === 'online' && netState.role === 'guest') {
+                    showToast('รอเจ้าห้องกดเริ่มแมตช์ใหม่', 'info');
+                    return;
+                }
+                startMatch();
+            });
+
+            // เสียง & คัทซีน
+            const btnSound = document.getElementById('btn-sound');
+            btnSound.addEventListener('click', () => {
+                sound.init();
+                sound.enabled = !sound.enabled;
+                btnSound.textContent = sound.enabled ? '🔊' : '🔇';
+            });
+            const btnCutsceneToggle = document.getElementById('btn-cutscene-toggle');
+            btnCutsceneToggle.addEventListener('click', () => {
+                gameState.cutscenesEnabled = !gameState.cutscenesEnabled;
+                btnCutsceneToggle.classList.toggle('active-mode', gameState.cutscenesEnabled);
+                btnCutsceneToggle.textContent = gameState.cutscenesEnabled ? '🎬 คัทซีน: เปิด' : '🎬 คัทซีน: ปิด';
+            });
+            document.getElementById('btn-skip-cutscene').addEventListener('click', finishCutscene);
+
+            // สกินดาบเห็ด
+            document.querySelectorAll('.skin-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    sound.init();
+                    const playerKey = btn.getAttribute('data-player');
+                    const skinId = btn.getAttribute('data-skin');
+                    const skinCfg = SKIN_CONFIGS[skinId];
+                    if (!skinCfg) return;
+
+                    syncSkinButtonsUI(playerKey, skinId);
+
+                    if (playerKey === 'p1') {
+                        gameState.p1Skin = skinId;
+                        p1.applySkin(skinId);
+                        spawnSporeExplosion(p1.x, 1.2, p1.z, skinCfg.hitColor || p1.glowColor, 16);
+                        spawnCallout(`${skinCfg.emoji} ${skinCfg.name}!`, p1.x, 2.35, p1.z, '#fde047', '1.2rem');
+                        if (gameState.mode === 'online' && netState.role === 'host') {
+                            sendNetMessage({ type: 'skin', player: 'p1', skin: skinId });
+                        }
+                    } else {
+                        gameState.p2Skin = skinId;
+                        p2.applySkin(skinId);
+                        spawnSporeExplosion(p2.x, 1.2, p2.z, skinCfg.hitColor || p2.glowColor, 16);
+                        spawnCallout(`${skinCfg.emoji} ${skinCfg.name}!`, p2.x, 2.35, p2.z, '#67e8f9', '1.2rem');
+                        if (gameState.mode === 'online' && netState.role === 'guest') {
+                            sendNetMessage({ type: 'skin', player: 'p2', skin: skinId });
+                        }
+                    }
+
+                    if (skinId === 'water') sound.playWaterSplash();
+                    else sound.playSwing(false);
+                });
+            });
+
+            // ลากหมุนกล้องบนฉาก 3D
+            const canvasEl = renderer.domElement;
+            canvasEl.addEventListener('pointerdown', (e) => {
+                camControl.isDragging = true;
+                camControl.lastX = e.clientX;
+                camControl.lastY = e.clientY;
+            });
+            window.addEventListener('pointerup', () => { camControl.isDragging = false; });
+            window.addEventListener('pointermove', (e) => {
+                if (!camControl.isDragging) return;
+                const dx = e.clientX - camControl.lastX;
+                const dy = e.clientY - camControl.lastY;
+                camControl.lastX = e.clientX;
+                camControl.lastY = e.clientY;
+                camControl.yawOffset -= dx * 0.007;
+                camControl.pitchOffset = Math.max(-0.28, Math.min(0.45, camControl.pitchOffset + dy * 0.004));
+            });
+            canvasEl.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                camControl.distanceOffset = Math.max(-3.0, Math.min(6.0, camControl.distanceOffset + e.deltaY * 0.008));
+            }, { passive: false });
+
+            window.addEventListener('resize', () => {
+                const wrapper = document.getElementById('game-canvas-wrapper');
+                if (!wrapper || !renderer || !camera) return;
+                camera.aspect = wrapper.clientWidth / wrapper.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
+            });
+        }
+
+        function bootGame() {
+            try {
+                initScene();
+                bindControls();
+                updateControlsLayout();
+                updateHUD();
+                requestAnimationFrame(animate);
+            } catch (err) {
+                console.error('Game initialization failed:', err);
+            }
+        }
+
+        if (document.readyState === 'complete') bootGame();
+        else window.addEventListener('load', bootGame);
+    </script>
+</body>
+</html>
+```
